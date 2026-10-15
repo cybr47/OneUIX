@@ -3,6 +3,7 @@ name: Release
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,22 +23,57 @@ jobs:
 
       - name: Set up signing
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Signing secrets are not fully configured"
+          set +x
+          if [ -z "$P12_BASE64" ] || [ -z "$P12_PASSWORD" ]; then
+            echo "::error::Signing secrets (P12_BASE64, P12_PASSWORD) are not fully configured"
             exit 1
           fi
           umask 077
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
-          {
-            printf 'storeFile=release.keystore\n'
-            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+          printf '%s' "$P12_BASE64" | base64 --decode > app/release.p12
+          KEY_ALIAS=$(java -e '
+            import java.io.FileInputStream;
+            import java.security.KeyStore;
+            public class GetAlias {
+              public static void main(String[] args) throws Exception {
+                KeyStore ks = KeyStore.getInstance("PKCS12");
+                try (FileInputStream fis = new FileInputStream("app/release.p12")) {
+                  ks.load(fis, System.getenv("P12_PASSWORD").toCharArray());
+                }
+                if (ks.aliases().hasMoreElements()) {
+                  System.out.print(ks.aliases().nextElement());
+                }
+              }
+            }
+          ' 2>/dev/null || keytool -list -v -keystore app/release.p12 -storepass "$P12_PASSWORD" -storetype PKCS12 | sed -n 's/^Alias name: //p' | head -n 1 | tr -d '\r')
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Could not determine keyAlias from P12 file"
+            exit 1
+          fi
+          echo "::add-mask::$KEY_ALIAS"
+          KEY_ALIAS="$KEY_ALIAS" java -e '
+            import java.io.FileOutputStream;
+            import java.util.Properties;
+            public class WriteProps {
+              public static void main(String[] args) throws Exception {
+                Properties p = new Properties();
+                p.setProperty("storeFile", "release.p12");
+                p.setProperty("storePassword", System.getenv("P12_PASSWORD"));
+                p.setProperty("keyAlias", System.getenv("KEY_ALIAS"));
+                p.setProperty("keyPassword", System.getenv("P12_PASSWORD"));
+                try (FileOutputStream fos = new FileOutputStream("keystore.properties")) {
+                  p.store(fos, null);
+                }
+              }
+            }
+          ' 2>/dev/null || {
+            printf 'storeFile=release.p12\n'
+            printf 'storePassword=%s\n' "$P12_PASSWORD"
             printf 'keyAlias=%s\n' "$KEY_ALIAS"
-            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+            printf 'keyPassword=%s\n' "$P12_PASSWORD"
           } > keystore.properties
 
       - name: Grant execute permission for gradlew
@@ -46,10 +82,16 @@ jobs:
       - name: Build Release APKs
         run: ./gradlew assembleRelease
 
+      - name: Remove signing files
+        if: always()
+        run: rm -f app/release.p12 keystore.properties
+
       - name: Verify Release signature
         env:
-          EXPECTED_CERT_SHA256: 3cfb2d32db4526e9cce22a0092a7d6819659db433cfec613fed68d44d999682a
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
+          set +x
           APK_PATH=app/build/outputs/apk/release/app-release.apk
           if [ -z "$ANDROID_HOME" ]; then
             echo "::error::ANDROID_HOME is not configured"
@@ -60,19 +102,33 @@ jobs:
             echo "::error::apksigner was not found"
             exit 1
           fi
+
+          umask 077
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/verify.p12"
+          EXPECTED_CERT_SHA256=$(keytool -list -v -keystore "$RUNNER_TEMP/verify.p12" -storepass "$P12_PASSWORD" -storetype PKCS12 | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]' | tr -d '\r')
+          rm -f "$RUNNER_TEMP/verify.p12"
+
           SIGNATURE_INFO=$("$APKSIGNER" verify --verbose --print-certs "$APK_PATH")
           ACTUAL_CERT_SHA256=$(printf '%s\n' "$SIGNATURE_INFO" | sed -n 's/^.*certificate SHA-256 digest: //p' | head -n 1)
-          if [ "$ACTUAL_CERT_SHA256" != "$EXPECTED_CERT_SHA256" ]; then
+          if [ -z "$ACTUAL_CERT_SHA256" ] || [ "$ACTUAL_CERT_SHA256" != "$EXPECTED_CERT_SHA256" ]; then
             echo "::error::Unexpected signing certificate: $ACTUAL_CERT_SHA256"
             exit 1
           fi
-          echo "Verified signing certificate: $ACTUAL_CERT_SHA256"
+          echo "Verified signing certificate matches P12 keystore."
 
       - name: Rename APK
-        run: | 
+        run: |
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/OneUIX_${{ github.ref_name }}.apk
 
+      - name: Upload APK Artifact to Actions Tab
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneUIX_${{ github.ref_name }}
+          path: app/build/outputs/apk/release/OneUIX_*.apk
+          if-no-files-found: error
+
       - name: Upload Release Assets
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
