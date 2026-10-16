@@ -36,13 +36,12 @@ object FodBiometrics {
         fun install() {
             // Resolve the full required contract before installing any hooks.
             require(sensor.isAssignableFrom(keyguard))
-            listOf("mAnimationView", "mFpIconContainer", "mFingerprintLayout", "mSensorInfo").forEach {
+            listOf("mAnimationView", "mFpIconContainer", "mFingerprintLayout").forEach {
                 sensor.reflect.findField(it)
             }
             require(ImageView::class.java.isAssignableFrom(sensor.reflect.findField("mAnimationView").type))
             require(RelativeLayout::class.java.isAssignableFrom(sensor.reflect.findField("mFpIconContainer").type))
             keyguard.reflect.findField("mHelpMessageOnAodView")
-            sensor.reflect.findField("mSensorInfo").type.getDeclaredMethod("getImageSize")
             val initialize = sensor.declaredMethods.single { it.name == "initLayout" && it.parameterCount == 1 }
             val remove = keyguard.reflect.findMethodExact("removeView")
             val updates = hierarchy(keyguard).flatMap { it.declaredMethods.toList() }.filter {
@@ -94,13 +93,21 @@ object FodBiometrics {
             val original = window.reflect["mAnimationView"] as? ImageView ?: return
             val container = window.reflect["mFpIconContainer"] as? RelativeLayout ?: return
             val root = window.reflect["mFingerprintLayout"] as? ViewGroup ?: return
-            val state = windows.getOrPut(window) { WindowState(root, container, original) }
+            val state = windows.getOrPut(window) {
+                val target = WeakReference(window)
+                WindowState(root, container, original) {
+                    target.get()?.let { current ->
+                        runtime.safely("Resize keyguard FOD") { apply(current) }
+                    }
+                }
+            }
             if (!runtime.state.config.hideIcon) {
                 state.restore()
                 return
             }
-            val imageSize = (window.reflect["mSensorInfo"]?.reflect?.call("getImageSize") as? Number)?.toInt()
-                ?.takeIf { it in 1..4096 } ?: return
+            // FingerprintSensorInfo on newer firmware has no getImageSize(). The
+            // native view already has Samsung's size, including density/rotation.
+            // Hide independently of sizing so a pending layout cannot reveal it.
             state.hide(original)
             (window.reflect["mHelpMessageOnAodView"] as? View)?.let(state::hide)
             // Preserve the effect's completion callbacks and sensor feedback lifecycle.
@@ -110,19 +117,29 @@ object FodBiometrics {
                 state.removeReplacement()
                 return
             }
+            state.observeLayout()
+            val size = FodCompatibility.iconSize(original.layoutParams?.width ?: 0,
+                original.layoutParams?.height ?: 0, original.width, original.height)
+            if (size == null) {
+                state.removeReplacement()
+                runtime.report("Waiting for native FOD icon layout")
+                return
+            }
+            runtime.report("Native FOD icon size: ${size.width}x${size.height}")
             val replacement = state.replacement.get() ?: ImageView(original.context).apply {
                 isClickable = false
                 isFocusable = false
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                container.addView(this, RelativeLayout.LayoutParams(imageSize, imageSize).apply {
+                container.addView(this, RelativeLayout.LayoutParams(size.width, size.height).apply {
                     addRule(RelativeLayout.CENTER_IN_PARENT)
                 })
                 state.replacement = WeakReference(this)
+                runtime.report("Custom FOD PNG attached to keyguard")
             }
             state.allowOverflow()
-            if (replacement.layoutParams.width != imageSize || replacement.layoutParams.height != imageSize) {
-                replacement.layoutParams = RelativeLayout.LayoutParams(imageSize, imageSize).apply {
+            if (replacement.layoutParams.width != size.width || replacement.layoutParams.height != size.height) {
+                replacement.layoutParams = RelativeLayout.LayoutParams(size.width, size.height).apply {
                     addRule(RelativeLayout.CENTER_IN_PARENT)
                 }
             }
@@ -136,9 +153,12 @@ object FodBiometrics {
             generateSequence(type) { it.superclass }.takeWhile { it != Any::class.java }.toList()
     }
 
-    private class WindowState(root: ViewGroup, container: ViewGroup, original: View) {
+    private class WindowState(root: ViewGroup, container: ViewGroup, original: View, onLayout: () -> Unit) {
         val root = WeakReference(root)
         private val container = WeakReference(container)
+        private val originalView = WeakReference(original)
+        private val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> onLayout() }
+        private var observingLayout = false
         var replacement = WeakReference<ImageView>(null)
         private val hidden = WeakHashMap<View, Float>()
         private val rootClipChildren = root.clipChildren
@@ -152,6 +172,13 @@ object FodBiometrics {
         fun hide(view: View) {
             if (!hidden.containsKey(view)) hidden[view] = view.alpha
             view.alpha = 0f
+        }
+
+        fun observeLayout() {
+            if (!observingLayout) {
+                originalView.get()?.addOnLayoutChangeListener(layoutListener)
+                observingLayout = true
+            }
         }
 
         fun allowOverflow() {
@@ -171,6 +198,8 @@ object FodBiometrics {
         }
 
         fun restore() {
+            originalView.get()?.removeOnLayoutChangeListener(layoutListener)
+            observingLayout = false
             removeReplacement()
             hidden.forEach { (view, alpha) -> view.alpha = alpha }
             hidden.clear()

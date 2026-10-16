@@ -104,18 +104,20 @@ object FodSystemUi {
 
         fun installToast() {
             val toast = loader.loadClass("com.android.keyguard.biometrics.KeyguardBiometricToastView")
-            val update = toast.declaredMethods.single { it.name == "update" &&
-                it.parameterTypes.firstOrNull()?.simpleName == "ToastType" }
-            module.hook(update).intercept { chain ->
-                val result = chain.proceed()
-                runtime.safely("Update fingerprint toast visibility") {
-                    val view = chain.thisObject as? View ?: return@safely
-                    toastTypes[view] = (chain.args.firstOrNull() as? Enum<*>)?.name.orEmpty()
-                    applyToast(view)
+            FodCompatibility.toastUpdates(toast).forEach { update ->
+                val typeIndex = update.parameterTypes.indexOfFirst { it.name == toast.name + "\$ToastType" }
+                module.hook(update).intercept { chain ->
+                    val result = chain.proceed()
+                    runtime.safely("Update fingerprint toast visibility") {
+                        val view = chain.thisObject as? View ?: return@safely
+                        toastTypes[view] = (chain.args[typeIndex] as? Enum<*>)?.name.orEmpty()
+                        applyToast(view)
+                    }
+                    result
                 }
-                result
             }
             runtime.onChanged { toastTypes.keys.toList().forEach(::applyToast) }
+            runtime.report("Installed fingerprint toast hooks")
         }
 
         private fun applyToast(view: View) {

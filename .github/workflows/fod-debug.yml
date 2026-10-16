@@ -43,7 +43,7 @@ jobs:
       - name: Test, lint hooks, and build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew :common:testDebugUnitTest :app:testDebugUnitTest :hook:lintDebug :app:assembleDebug -Poneuix.applicationId=io.github.cybr47.oneuix.fodmod
+          ./gradlew :common:testDebugUnitTest :app:testDebugUnitTest :hook:testDebugUnitTest :hook:lintDebug :app:assembleDebug -Poneuix.applicationId=io.github.cybr47.oneuix.fodmod
       - name: Name APK
         run: mv app/build/outputs/apk/debug/app-debug.apk OneUIX-FOD-Debug.apk
       - name: Upload APK
@@ -60,6 +60,7 @@ jobs:
           path: |
             common/build/reports/tests/
             app/build/reports/tests/
+            hook/build/reports/tests/
             hook/build/reports/lint-results-debug.*
           if-no-files-found: ignore
           retention-days: 15

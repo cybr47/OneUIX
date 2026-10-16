@@ -43,6 +43,7 @@ internal class FodRuntime(
                     FodPng.decodeStored(FodConfig.readBounded(it, FodConfig.MAX_STORED_BYTES), config.iconDigest)
                 }
             }.onFailure { report("Cannot load selected PNG; keeping FOD hidden", it) }.getOrNull()
+            if (bitmap != null) report("Loaded custom FOD PNG")
             main.post {
                 state = State(config, bitmap)
                 listeners.forEach { listener -> safely("Refresh FOD visuals", listener) }

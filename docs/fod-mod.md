@@ -3,8 +3,9 @@
 System UI → Lock screen → **Hide FOD icon** hides the native fingerprint glyph,
 its scan visual effect, and fingerprint help/error text. With the switch on, tap
 the row to expand **Replace FOD icon**, choose a PNG, and set its size from
-50–150%. 100% uses Samsung's `UdfpsInfo.getImageSize()`, rather than a fixed dp
-guess. The PNG retains its proportions, colors, and transparency. Transparent
+50–150%. 100% uses the native fingerprint ImageView's layout dimensions, falling
+back to its laid-out bounds when necessary. No sensor-info getter or fixed dp
+size is required. The PNG retains its proportions, colors, and transparency. Transparent
 padding in the file also scales. Remove clears the replacement selection; OFF
 restores native visuals and retains the selection for later.
 
@@ -74,6 +75,14 @@ required classes, fields, and methods before installation and logs compatibility
 failures under `[OneUIX FOD]`. This is a testable implementation, not a claim that
 the missing One UI 9 biometric binary has been validated.
 
+The first device logs exposed two compatibility failures: newer
+`FingerprintSensorInfo` lacks `getImageSize()`, and the toast lookup based on
+`Class.simpleName` found no match. Icon sizing now reads the native view directly
+and retries after layout. Hiding does not depend on obtaining a size. Toast
+methods are matched by the enum's binary type name, including firmware classes
+without inner-class metadata. Logs report hook installation, PNG loading, and
+attachment separately so any remaining device issue can be located.
+
 On-device acceptance checks:
 
 - OFF: normal glyph/hints; ON without PNG: invisible glyph and fingerprint errors,
@@ -89,5 +98,6 @@ On-device acceptance checks:
   restored state; no crash on an absent or invalid PNG.
 
 CI covers preference compatibility, PNG header/allocation limits, bounded reads,
-digest checks, compile errors, and hook lint. These checks cannot substitute for
+digest checks, native icon size selection, toast lookup without inner-class
+metadata, compile errors, and hook lint. These checks cannot substitute for
 the device tests above.
