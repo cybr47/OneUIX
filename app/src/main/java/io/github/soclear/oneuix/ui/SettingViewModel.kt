@@ -1,6 +1,7 @@
 package io.github.soclear.oneuix.ui
 
 import android.app.Application
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
@@ -9,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.soclear.oneuix.AudioEraserTileService
 import io.github.soclear.oneuix.common.IgnoreUnknownKeysJson
+import io.github.soclear.oneuix.common.FodConfig
+import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.category.Category
@@ -29,7 +32,7 @@ import kotlinx.serialization.json.encodeToStream
 import java.io.InputStream
 import java.io.OutputStream
 
-class SettingViewModel(application: Application) : ViewModel() {
+class SettingViewModel(private val application: Application) : ViewModel() {
     val categoryAppInfoList: StateFlow<List<CategoryAppInfo>> = flow {
         val packageManager = application.packageManager
         val fallbackIcon = application.applicationInfo
@@ -73,6 +76,21 @@ class SettingViewModel(application: Application) : ViewModel() {
         }
     }
 
+    fun updateFod(transform: (FodConfig) -> FodConfig) {
+        viewModelScope.launch {
+            dataStore.updateData { current ->
+                current.copy(systemUI = current.systemUI.copy(fod = transform(current.systemUI.fod)))
+            }
+            notifyFodChanged()
+        }
+    }
+
+    private fun notifyFodChanged() {
+        listOf(Package.SYSTEMUI, Package.BIOMETRICS).forEach { target ->
+            application.sendBroadcast(Intent(FodConfig.changeAction).setPackage(target))
+        }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun backupTo(output: OutputStream) = withContext(Dispatchers.IO) {
         IgnoreUnknownKeysJson.encodeToStream(
@@ -86,5 +104,6 @@ class SettingViewModel(application: Application) : ViewModel() {
     suspend fun restoreFrom(input: InputStream) = withContext(Dispatchers.IO) {
         val restored = IgnoreUnknownKeysJson.decodeFromStream<Preference>(input)
         dataStore.updateData { restored }
+        notifyFodChanged()
     }
 }

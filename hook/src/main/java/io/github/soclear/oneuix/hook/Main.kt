@@ -3,7 +3,10 @@ package io.github.soclear.oneuix.hook
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import io.github.soclear.oneuix.common.NetworkSpeedOption
+import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.hook.fod.FodBiometrics
+import io.github.soclear.oneuix.hook.fod.FodSystemUi
 import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.ESIM
@@ -25,7 +28,15 @@ class Main : XposedModule() {
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) = with(param) {
         if (!isFirstPackage) return@with
-        val preference = PreferenceProvider.loadPreference() ?: return@with
+        val savedPreference = PreferenceProvider.loadPreference()
+        // Install the opt-in FOD listeners even on a fresh installation, before the
+        // settings file exists. Other features retain their existing startup behavior.
+        val fod = savedPreference?.systemUI?.fod ?: FodConfig()
+        when (packageName) {
+            Package.BIOMETRICS -> FodBiometrics.install(fod)
+            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> FodSystemUi.install(fod)
+        }
+        val preference = savedPreference ?: return@with
 
         when (packageName) {
             Package.BIXBY_AGENT, Package.BIXBY_WAKEUP -> {

@@ -782,6 +782,11 @@ fun DetailPaneSystemUI(
             )
         }
 
+        if (ONE_UI_VERSION >= 90000) {
+            DividerText(R.string.fod_lockscreen)
+            FodItem(uiState.fod, onEvent)
+        }
+
         DividerText(R.string.notification)
         Column {
             var expanded by rememberSaveable { mutableStateOf(false) }
@@ -976,6 +981,12 @@ private fun powerMenuActionTitle(actionName: String): Int = when (actionName) {
 }
 
 sealed interface SystemUIEvent {
+    sealed interface Fod : SystemUIEvent {
+        data class Enabled(val value: Boolean) : Fod
+        data class Size(val value: Int) : Fod
+        data class SelectIcon(val slot: Int, val digest: String) : Fod
+        data object RemoveIcon : Fod
+    }
     sealed interface StatusBar : SystemUIEvent {
         @JvmInline
         value class ModifyStatusBarLeftPadding(val value: Boolean) : StatusBar
@@ -1184,6 +1195,14 @@ sealed interface SystemUIEvent {
 
 fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
     when (event) {
+        is SystemUIEvent.Fod -> updateFod { current ->
+            when (event) {
+                is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
+                is SystemUIEvent.Fod.Size -> current.copy(sizePercent = event.value.coerceIn(50, 150))
+                is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest)
+                SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "")
+            }
+        }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)
         is SystemUIEvent.QS -> onQSEvent(event)
         is SystemUIEvent.AOD -> onAODEvent(event)

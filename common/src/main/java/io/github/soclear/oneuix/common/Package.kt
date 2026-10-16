@@ -1,6 +1,7 @@
 package io.github.soclear.oneuix.common
 
 object Package {
+    const val BIOMETRICS = "com.samsung.android.biometrics.app.setting"
     const val ANDROID = "android"
     const val BIXBY_AGENT = "com.samsung.android.bixby.agent"
     const val BIXBY_WAKEUP = "com.samsung.android.bixby.wakeup"
