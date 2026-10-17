@@ -6,6 +6,12 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- Only this signing identity may notify the injected FOD receivers. -->
+    <permission
+        android:name="${applicationId}.permission.FOD_REFRESH"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.FOD_REFRESH" />
+
     <uses-permission
         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />

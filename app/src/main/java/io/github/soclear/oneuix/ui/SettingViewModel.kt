@@ -1,8 +1,10 @@
 package io.github.soclear.oneuix.ui
 
 import android.app.Application
+import android.app.BroadcastOptions
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.datastore.core.DataStore
@@ -86,8 +88,12 @@ class SettingViewModel(private val application: Application) : ViewModel() {
     }
 
     private fun notifyFodChanged() {
+        // FOD is a One UI 9 feature. Do not fall back to anonymous broadcasts on
+        // older platforms; the hook can still read settings at process startup.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        val options = BroadcastOptions.makeBasic().setShareIdentityEnabled(true).toBundle()
         listOf(Package.SYSTEMUI, Package.BIOMETRICS).forEach { target ->
-            application.sendBroadcast(Intent(FodConfig.changeAction).setPackage(target))
+            application.sendBroadcast(Intent(FodConfig.changeAction).setPackage(target), null, options)
         }
     }
 

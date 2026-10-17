@@ -13,8 +13,15 @@ restores native visuals and retains the selection for later.
 
 The **FOD debug APK** Actions workflow on `feat/fodmod` runs tests, hook lint, and
 assembles **OneUIX-FOD-Debug.apk**. It uses application ID
-`io.github.cybr47.oneuix.fodmod` and a cached debug key, independently of release
-signing secrets. It installs alongside the normal module.
+`io.github.cybr47.oneuix.fodmod` and the fork's existing `P12_BASE64` /
+`P12_PASSWORD` signing secrets. It installs alongside the normal module. Signing
+keys are never cached or uploaded. Missing secrets fail the build instead of
+falling back to a disposable or publicly shared signing identity.
+
+**Upgrade from the earlier test APK:** that APK used a cached debug key. Back up
+any settings you need, uninstall **OneUIX FOD debug**, then install this build and
+select your PNG again. This one-time signature change does not affect the normal
+OneUIX app. Later builds use the repository signing key and can update in place.
 
 1. Install the APK from the successful Actions run.
 2. Disable your other OneUIX module in LSPosed before enabling **OneUIX FOD debug**.
@@ -59,7 +66,18 @@ two stored PNG slots. Remove clears the selection, not those reusable slots.
 
 Both host processes read module-owned remote files. A package-targeted broadcast
 only requests a reload, never supplies settings, filenames, commands, or image
-data. Reloads are coalesced; PNG decoding happens off the UI thread and rendering
+data. Android enforces a module-defined signature permission before delivery;
+the receiver additionally checks the sender package and UID supplied by Android
+(API 34+) against the installed module. The sender explicitly shares that
+identity. Missing identity, permission, or package information never enables an
+unprotected fallback. Initial loading still works without broadcasts.
+
+Reloads are coalesced with one active read, one pending follow-up, and a 250 ms
+delay between batches. FOD preference reads are limited to 1 MiB and 32 levels
+of JSON nesting and decode only the FOD settings. The Biometrics process does not
+load unrelated module preferences. Invalid settings restore native visuals;
+parser errors are logged without preference contents. PNG decoding happens off
+the UI thread and rendering
 uses a cached bitmap. Unselected/disabled hooks do not decode images. Existing JSON
 backups contain the PNG reference, not the PNG bytes; reselect the file after
 restoring a backup on a different installation/device.
@@ -99,5 +117,37 @@ On-device acceptance checks:
 
 CI covers preference compatibility, PNG header/allocation limits, bounded reads,
 digest checks, native icon size selection, toast lookup without inner-class
-metadata, compile errors, and hook lint. These checks cannot substitute for
+metadata, sender rejection, refresh burst coalescing, malformed/deep preferences,
+signing setup, the packaged permission declaration, compile errors, and hook lint.
+Application/common lint reports are also collected separately without changing
+unrelated features. These checks cannot substitute for
 the device tests above.
+
+## Settings icon provenance
+
+The settings icon is Google's **Material Symbols Outlined / fingerprint** with
+FILL 0, weight 400, grade 0, optical size 24. The Android vector retains the exact
+upstream path and translates the SVG's negative-y viewport by 960; Compose applies
+the normal settings icon tint. It does not affect the chosen lockscreen PNG.
+
+Source (pinned):
+https://github.com/google/material-design-icons/blob/6d7ca43bd6e6668531a00fcaca06d921b63dd716/symbols/web/fingerprint/materialsymbolsoutlined/fingerprint_24px.svg
+
+License: `licenses/MaterialSymbols-APACHE-2.0.txt` (Google, Apache-2.0).
+
+## Security review scope
+
+Reviewed against the device-tested `eb5f292` baseline. The native view, animation,
+positioning, size and hint hooks are unchanged; hardening affects communication,
+configuration reads, and the test-build pipeline. FOD adds no authentication-result
+overrides, credential access, shell commands, network endpoint, writable host-side
+preferences, or dynamically loaded code. The trusted base remains Android's
+biometric stack, LSPosed, the installed module, and the repository signing key.
+Root compromise, malicious module updates, firmware/native image-decoder bugs,
+and other enabled modules remain outside this feature's guarantees.
+
+The automated guards are regression checks, not proof that all vulnerabilities
+have been eliminated. On a device, verify that toggle/PNG/size changes still apply,
+an ordinary app cannot cause a refresh, a wrong finger never unlocks, and native
+PIN requirements/lockout remain enforced. Unrelated repository findings are
+reported separately and are not changed by this feature patch.

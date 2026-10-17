@@ -1,6 +1,7 @@
 package io.github.soclear.oneuix.ui
 
 import android.content.Context
+import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -11,6 +12,7 @@ import io.github.soclear.oneuix.common.FodPng
 object FodIconStore {
     // Alternate two files so a reader never sees a partially overwritten selected PNG.
     fun importIcon(context: Context, uri: Uri, current: FodConfig): FodConfig {
+        require(uri.scheme == ContentResolver.SCHEME_CONTENT) { "Choose a PNG from the document picker" }
         val service = checkNotNull(XposedServiceManager.xposedService) { "Module is not active" }
         val bytes = requireNotNull(context.contentResolver.openInputStream(uri)).use {
             FodPng.normalize(FodConfig.readBounded(it, FodConfig.MAX_IMPORT_BYTES))

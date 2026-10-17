@@ -13,13 +13,15 @@ data class FodConfig(
 ) {
     val scale: Float get() = sizePercent.coerceIn(50, 150) / 100f
     val hasCustomIcon: Boolean
-        get() = iconSlot in 0..1 && iconDigest.matches(Regex("[0-9a-f]{64}"))
+        get() = iconSlot in 0..1 && iconDigest.length == 64 &&
+            iconDigest.all { it in '0'..'9' || it in 'a'..'f' }
     val iconFileName: String?
         get() = if (hasCustomIcon) fileName(iconSlot) else null
 
     companion object {
         // A package-targeted notification only: receivers read the trusted remote file.
         val changeAction = BuildConfig.MODULE_APPLICATION_ID + ".FOD_CHANGED"
+        val changePermission = BuildConfig.MODULE_APPLICATION_ID + ".permission.FOD_REFRESH"
         const val MAX_IMPORT_BYTES = 8 * 1024 * 1024
         const val MAX_STORED_BYTES = 1100000
         const val MAX_STORED_SIDE = 512
@@ -39,8 +41,16 @@ data class FodConfig(
             while (true) {
                 val count = input.read(buffer)
                 if (count == -1) break
-                require(output.size().toLong() + count <= limit) { "PNG file is too large" }
-                output.write(buffer, 0, count)
+                if (count == 0) {
+                    // Some provider streams make no progress on a bulk read.
+                    val next = input.read()
+                    if (next == -1) break
+                    require(output.size() < limit) { "File is too large" }
+                    output.write(next)
+                } else {
+                    require(output.size().toLong() + count <= limit) { "File is too large" }
+                    output.write(buffer, 0, count)
+                }
             }
             return output.toByteArray()
         }

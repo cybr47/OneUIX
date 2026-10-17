@@ -28,12 +28,16 @@ class Main : XposedModule() {
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) = with(param) {
         if (!isFirstPackage) return@with
+        // Biometrics needs only bounded FOD settings, not every module preference.
+        if (packageName == Package.BIOMETRICS) {
+            if (processName == Package.BIOMETRICS) FodBiometrics.install(FodConfig())
+            return@with
+        }
         val savedPreference = PreferenceProvider.loadPreference()
         // Install the opt-in FOD listeners even on a fresh installation, before the
         // settings file exists. Other features retain their existing startup behavior.
         val fod = savedPreference?.systemUI?.fod ?: FodConfig()
         when (packageName) {
-            Package.BIOMETRICS -> FodBiometrics.install(fod)
             Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> FodSystemUi.install(fod)
         }
         val preference = savedPreference ?: return@with
