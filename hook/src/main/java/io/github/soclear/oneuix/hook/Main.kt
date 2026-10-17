@@ -4,12 +4,15 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import io.github.soclear.oneuix.common.NetworkSpeedOption
 import io.github.soclear.oneuix.common.FodConfig
+import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.hook.fod.FodBiometrics
 import io.github.soclear.oneuix.hook.fod.FodSystemUi
 import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.ESIM
+import io.github.soclear.oneuix.hook.systemui.ComposeBatteryAppearance
+import io.github.soclear.oneuix.hook.systemui.HomeStatusBar
 import io.github.soclear.oneuix.hook.systemui.HideBatteryIcon
 import io.github.soclear.oneuix.hook.systemui.Notification
 import io.github.soclear.oneuix.hook.systemui.Other
@@ -275,15 +278,21 @@ class Main : XposedModule() {
                     StatusBar.hideBatteryPercentageSign()
                 }
 
-                if (preference.systemUI.statusBar.hideBatteryIcon) {
-                    HideBatteryIcon.apply()
-                }
-
-                if (preference.systemUI.statusBar.addBatteryLevelText) {
-                    StatusBar.addBatteryLevelText(
-                        hidePercentSign = preference.systemUI.statusBar.hideBatteryLevelTextPercentageSign,
-                        hideChargingIcon = preference.systemUI.statusBar.hideBatteryLevelTextChargingIcon,
-                    )
+                if (ONE_UI_VERSION >= 90000) {
+                    if (processName == Package.SYSTEMUI) {
+                        ComposeBatteryAppearance.install(preference.systemUI.statusBar)
+                        HomeStatusBar.install(preference.systemUI.statusBar)
+                    }
+                } else {
+                    if (preference.systemUI.statusBar.hideBatteryIcon) {
+                        HideBatteryIcon.apply()
+                    }
+                    if (preference.systemUI.statusBar.addBatteryLevelText) {
+                        StatusBar.addBatteryLevelText(
+                            hidePercentSign = preference.systemUI.statusBar.hideBatteryLevelTextPercentageSign,
+                            hideChargingIcon = preference.systemUI.statusBar.hideBatteryLevelTextChargingIcon,
+                        )
+                    }
                 }
 
                 if (preference.systemUI.statusBar.supportRealTimeNetworkSpeed) {

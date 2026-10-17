@@ -72,6 +72,22 @@ fun DetailPaneSystemUI(
             Text(text = stringResource(CommonR.string.restartSystemUI))
         }
         DividerText(R.string.status_bar)
+        if (ONE_UI_VERSION >= 90000) {
+            SwitchItem(
+                title = stringResource(R.string.adaptiveHomeStatusBar_title),
+                summary = stringResource(R.string.adaptiveHomeStatusBar_summary),
+                icon = ImageVector.vectorResource(R.drawable.light_mode),
+                checked = uiState.statusBar.adaptiveHomeStatusBar,
+                onCheckedChange = { onEvent(SystemUIEvent.StatusBar.AdaptiveHomeStatusBar(it)) }
+            )
+            SwitchItem(
+                title = stringResource(R.string.hideClockOnHome_title),
+                summary = stringResource(R.string.hideClockOnHome_summary),
+                icon = ImageVector.vectorResource(R.drawable.nest_clock_farsight_digital),
+                checked = uiState.statusBar.hideClockOnHome,
+                onCheckedChange = { onEvent(SystemUIEvent.StatusBar.HideClockOnHome(it)) }
+            )
+        }
         Column {
             var padding by remember {
                 mutableFloatStateOf(uiState.statusBar.statusBarLeftPaddingDp)
@@ -989,6 +1005,12 @@ sealed interface SystemUIEvent {
     }
     sealed interface StatusBar : SystemUIEvent {
         @JvmInline
+        value class AdaptiveHomeStatusBar(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideClockOnHome(val value: Boolean) : StatusBar
+
+        @JvmInline
         value class ModifyStatusBarLeftPadding(val value: Boolean) : StatusBar
 
         @JvmInline
@@ -1214,6 +1236,16 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
 private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
     updateData { preference ->
         when (event) {
+            is SystemUIEvent.StatusBar.AdaptiveHomeStatusBar -> preference.copy(
+                systemUI = preference.systemUI.copy(statusBar = preference.systemUI.statusBar.copy(
+                    adaptiveHomeStatusBar = event.value
+                ))
+            )
+            is SystemUIEvent.StatusBar.HideClockOnHome -> preference.copy(
+                systemUI = preference.systemUI.copy(statusBar = preference.systemUI.statusBar.copy(
+                    hideClockOnHome = event.value
+                ))
+            )
             is SystemUIEvent.StatusBar.ModifyStatusBarLeftPadding -> {
                 preference.copy(
                     systemUI = preference.systemUI.copy(

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="adaptiveHomeStatusBar_title">Barre d’état adaptative sur l’accueil</string>
+    <string name="adaptiveHomeStatusBar_summary">Sur l’écran d’accueil, utiliser des icônes sombres sur fond clair et claires sur fond sombre.</string>
+    <string name="hideClockOnHome_title">Fondu de l’horloge sur l’accueil</string>
+    <string name="hideClockOnHome_summary">Masquer progressivement l’horloge sur l’accueil et la faire réapparaître à l’ouverture d’une application.</string>
+</resources>

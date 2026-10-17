@@ -37,6 +37,8 @@ data class Preference(
     ) {
         @Serializable
         data class StatusBar(
+            val adaptiveHomeStatusBar: Boolean = false,
+            val hideClockOnHome: Boolean = false,
             val modifyStatusBarLeftPadding: Boolean = false,
             val statusBarLeftPaddingDp: Float = 0f,
             val modifyStatusBarRightPadding: Boolean = false,
