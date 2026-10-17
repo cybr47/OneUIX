@@ -6,7 +6,7 @@ object StatusBarAppearance {
         buildString {
             append(level.coerceIn(0, 100))
             if (!hidePercent) append('%')
-            if (charging && !hideCharging) append('\u26A1\uFE0E')
+            if (charging && !hideCharging) append("\u26A1\uFE0E")
         }
 
     fun isHomeAppearanceActive(
