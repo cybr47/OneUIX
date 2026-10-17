@@ -19,7 +19,14 @@ reboot after enabling its System UI scope.
 - Task events, screen state and the status-bar state controller limit both options
   to unlocked, interactive One UI Home with the shade closed. No launcher hook,
   exported command receiver, extra permission or authentication change is added.
-- Sampling stops away from Home and listeners are destroyed with the status view.
+- Adaptive colour sampling also applies to an identified Recents task/launcher overview
+  when unlocked and the shade is closed. The clock option remains Home-only.
+  If Samsung's overview is not exposed as a distinct task, the stock tint remains;
+  confirm the Recents result on the device.
+- Native app tint callbacks take precedence as soon as Home/Recents is left.
+  A single 300 ms fallback restores the prior native tint only if no callback arrives;
+  there is no repeated polling. Lock, shade and screen-off restore immediately.
+- Sampling stops away from Home/Recents and listeners are destroyed with the status view.
   If the native sampling contract is unavailable, stock colours remain in use.
 
 ## Battery compatibility

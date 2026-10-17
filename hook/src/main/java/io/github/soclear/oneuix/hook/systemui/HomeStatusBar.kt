@@ -49,6 +49,8 @@ internal object HomeStatusBar {
         private var dispatcher: Any? = null
         private var statusView: View? = null
         private var homeActive = false
+        private var tintActive = false
+        private var deferNativeRestore = false
         private var homeTask = false
         private var ownTintUpdate = false
         private var nativeIntensity = 0f
@@ -60,6 +62,12 @@ internal object HomeStatusBar {
         private var sampling = false
         private val reported = mutableSetOf<String>()
         private val refresh = Runnable { safely("home state") { refreshHome() } }
+        // One-shot fallback only: native SystemUI tint callbacks normally complete the
+        // transition sooner. Never poll window state or keep sampling outside Home/Recents.
+        private val delayedTintRestore = Runnable {
+            safely("native tint fallback") { restoreNativeTint() }
+        }
+        private var restorePending = false
         private val transitionAlpha = View::class.java.getDeclaredMethod("setTransitionAlpha", Float::class.javaPrimitiveType)
             .apply { isAccessible = true }
         private val getTransitionAlpha = View::class.java.getDeclaredMethod("getTransitionAlpha")
@@ -146,22 +154,33 @@ internal object HomeStatusBar {
         private fun refreshHome() {
             // A launcher package alone is not enough: Recents and other activity types must not
             // be treated as Home. SystemUI already has permission to read the current task.
-            homeTask = runCatching {
-                val task = context.getSystemService(ActivityManager::class.java).getRunningTasks(1).firstOrNull()
+            val (isHome, isRecents) = runCatching {
+                val task = context.getSystemService(ActivityManager::class.java)
+                    .getRunningTasks(1).firstOrNull()
                 val configuration = task?.reflect?.get("configuration")?.reflect?.get("windowConfiguration")
-                configuration?.reflect?.call("getActivityType") == 2 &&
-                    task?.topActivity?.packageName == "com.sec.android.app.launcher"
-            }.getOrDefault(false)
+                val activityType = configuration?.reflect?.call("getActivityType") as? Int
+                val component = task?.topActivity
+                val launcher = component?.packageName == "com.sec.android.app.launcher"
+                (activityType == 2 && launcher) to StatusBarAppearance.isRecentsTask(
+                    activityType, component?.packageName, component?.className
+                )
+            }.getOrDefault(false to false)
+            homeTask = isHome
             val controller = stateController
             val state = runCatching { controller?.reflect?.call("getState") as? Int }.getOrNull()
             val expanded = runCatching { controller?.reflect?.call("isExpanded") as? Boolean }.getOrNull() ?: true
             val dozing = runCatching { controller?.reflect?.call("isDozing") as? Boolean }.getOrNull() ?: true
             val dreaming = runCatching { controller?.reflect?.call("isDreaming") as? Boolean }.getOrNull() ?: true
+            val interactive = context.getSystemService(PowerManager::class.java).isInteractive
+            val locked = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
             homeActive = StatusBarAppearance.isHomeAppearanceActive(
-                homeTask, context.getSystemService(PowerManager::class.java).isInteractive,
-                context.getSystemService(KeyguardManager::class.java).isKeyguardLocked,
-                state, expanded, dozing || dreaming
+                homeTask, interactive, locked, state, expanded, dozing || dreaming
             )
+            tintActive = StatusBarAppearance.isHomeAppearanceActive(
+                homeTask || isRecents, interactive, locked, state, expanded, dozing || dreaming
+            )
+            deferNativeRestore = interactive && !locked && state == 0 &&
+                !expanded && !dozing && !dreaming
             clocks.keys.toList().forEach { setClockHidden(it, homeActive) }
             if (options.adaptiveHomeStatusBar) {
                 safely("sampling") { updateSampling() }
@@ -244,7 +263,7 @@ internal object HomeStatusBar {
 
         private fun updateSampling() {
             val view = statusView
-            val enabled = homeActive && view?.isAttachedToWindow == true && view.width > 0 && view.height > 0
+            val enabled = tintActive && view?.isAttachedToWindow == true && view.width > 0 && view.height > 0
             if (!enabled) {
                 if (sampling) samplers.forEach { it.reflect.call("stop") }
                 sampling = false
@@ -271,9 +290,9 @@ internal object HomeStatusBar {
                         val listener = proxy(callback) { name, args ->
                             when (name) {
                                 "getSampledRegion" -> Rect(regions[index])
-                                "isSamplingEnabled" -> homeActive
+                                "isSamplingEnabled" -> tintActive
                                 "onRegionDarknessChanged" -> {
-                                    if (sampling && homeActive && statusView === view) {
+                                    if (sampling && tintActive && statusView === view) {
                                         darkBackground[index] = args?.firstOrNull() as? Boolean
                                         safely("sample tint") { updateTint() }
                                     }
@@ -300,7 +319,7 @@ internal object HomeStatusBar {
             }
         }
 
-        private fun hasHomeColours() = homeActive && sampling && darkBackground.all { it != null }
+        private fun hasAdaptiveColours() = tintActive && sampling && darkBackground.all { it != null }
         private fun homeIntensity() = if (darkBackground.any { it == false }) 1f else 0f
         private fun homeAreas(): ArrayList<Rect> = ArrayList(regions.indices.filter {
             darkBackground[it] == false
@@ -326,7 +345,16 @@ internal object HomeStatusBar {
             module.hook(apply).intercept { chain ->
                 if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
                 nativeIntensity = chain.args[0] as Float
-                if (!hasHomeColours()) return@intercept chain.proceed()
+                if (!hasAdaptiveColours()) {
+                    val result = chain.proceed()
+                    // A real SystemUI intensity event supersedes our previous sampled tint.
+                    // Avoid restoring a stale Home value during a window transition.
+                    if (!tintActive && tintOverridden) {
+                        cancelPendingRestore()
+                        tintOverridden = false
+                    }
+                    return@intercept result
+                }
                 val args = chain.args.toTypedArray()
                 args[0] = homeIntensity()
                 chain.proceed(args)
@@ -334,7 +362,7 @@ internal object HomeStatusBar {
             module.hook(setAreas).intercept { chain ->
                 if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
                 nativeAreas = ArrayList((chain.args[0] as? List<*>)?.filterIsInstance<Rect>()?.map { Rect(it) }.orEmpty())
-                if (!hasHomeColours()) return@intercept chain.proceed()
+                if (!hasAdaptiveColours()) return@intercept chain.proceed()
                 val args = chain.args.toTypedArray()
                 args[0] = homeAreas()
                 chain.proceed(args)
@@ -343,21 +371,55 @@ internal object HomeStatusBar {
                 val result = chain.proceed()
                 if (chain.thisObject === dispatcher && !ownTintUpdate) {
                     nativeAreas.clear()
-                    if (hasHomeColours()) chain.thisObject.reflect["mTintAreas"] = homeAreas()
+                    if (hasAdaptiveColours()) chain.thisObject.reflect["mTintAreas"] = homeAreas()
                 }
                 result
             }
         }
 
-        private fun updateTint() {
+        private fun cancelPendingRestore() {
+            main.removeCallbacks(delayedTintRestore)
+            restorePending = false
+        }
+
+        private fun restoreNativeTint() {
+            cancelPendingRestore()
+            if (!tintOverridden || hasAdaptiveColours()) return
             val target = dispatcher ?: return
-            val active = hasHomeColours()
-            if (!active && !tintOverridden) return
             ownTintUpdate = true
             try {
-                target.reflect.call("setIconsDarkArea", if (active) homeAreas() else ArrayList(nativeAreas))
-                target.reflect.call("applyDarkIntensity", if (active) homeIntensity() else nativeIntensity)
-                tintOverridden = active
+                target.reflect.call("setIconsDarkArea", ArrayList(nativeAreas))
+                target.reflect.call("applyDarkIntensity", nativeIntensity)
+                tintOverridden = false
+            } finally { ownTintUpdate = false }
+        }
+
+        private fun updateTint() {
+            val target = dispatcher ?: return
+            if (!hasAdaptiveColours()) {
+                if (!tintOverridden) return
+                if (tintActive && sampling) {
+                    // Keep the last tint until the next region sample arrives.
+                    cancelPendingRestore()
+                } else if (deferNativeRestore && statusView?.isAttachedToWindow == true) {
+                    // App transition: wait briefly for Samsung's native tint callback
+                    // instead of showing a possibly stale white tint for one frame.
+                    if (!restorePending) {
+                        restorePending = true
+                        main.postDelayed(delayedTintRestore, 300L)
+                    }
+                } else {
+                    // Lockscreen, shade, screen off and detached views restore immediately.
+                    restoreNativeTint()
+                }
+                return
+            }
+            cancelPendingRestore()
+            ownTintUpdate = true
+            try {
+                target.reflect.call("setIconsDarkArea", homeAreas())
+                target.reflect.call("applyDarkIntensity", homeIntensity())
+                tintOverridden = true
             } finally { ownTintUpdate = false }
         }
 

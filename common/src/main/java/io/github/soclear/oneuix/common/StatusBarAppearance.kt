@@ -9,6 +9,13 @@ object StatusBarAppearance {
             if (charging && !hideCharging) append("\u26A1\uFE0E")
         }
 
+    /** Detect Android's Recents activity type, with a launcher-class fallback. */
+    fun isRecentsTask(activityType: Int?, packageName: String?, className: String?): Boolean =
+        activityType == 3 ||
+            (packageName == "com.sec.android.app.launcher" &&
+                (className?.contains("recents", ignoreCase = true) == true ||
+                    className?.contains("overview", ignoreCase = true) == true))
+
     fun isHomeAppearanceActive(
         homeTask: Boolean,
         interactive: Boolean,
