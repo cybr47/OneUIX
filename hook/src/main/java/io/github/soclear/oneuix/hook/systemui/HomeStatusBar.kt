@@ -401,9 +401,11 @@ internal object HomeStatusBar {
                 if (tintActive && sampling) {
                     // Keep the last tint until the next region sample arrives.
                     cancelPendingRestore()
-                } else if (deferNativeRestore && statusView?.isAttachedToWindow == true) {
-                    // App transition: wait briefly for Samsung's native tint callback
-                    // instead of showing a possibly stale white tint for one frame.
+                } else if (deferNativeRestore) {
+                    // Samsung can detach the status view while launching an app. Keep the
+                    // last tint through that gap instead of briefly restoring a stale
+                    // native colour. Samsung's next tint callback still takes precedence;
+                    // the single delayed restore is only a bounded fallback.
                     if (!restorePending) {
                         restorePending = true
                         main.postDelayed(delayedTintRestore, 300L)
