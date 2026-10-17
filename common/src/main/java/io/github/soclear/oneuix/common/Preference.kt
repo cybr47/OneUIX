@@ -31,11 +31,14 @@ data class Preference(
         val statusBar: StatusBar = StatusBar(),
         val qs: QS = QS(),
         val aod: AOD = AOD(),
+        val fod: FodConfig = FodConfig(),
         val notification: Notification = Notification(),
         val other: Other = Other(),
     ) {
         @Serializable
         data class StatusBar(
+            val adaptiveHomeStatusBar: Boolean = false,
+            val hideClockOnHome: Boolean = false,
             val modifyStatusBarLeftPadding: Boolean = false,
             val statusBarLeftPaddingDp: Float = 0f,
             val modifyStatusBarRightPadding: Boolean = false,

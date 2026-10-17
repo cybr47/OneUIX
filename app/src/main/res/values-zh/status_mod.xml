@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="adaptiveHomeStatusBar_title">主屏幕自适应状态栏</string>
+    <string name="adaptiveHomeStatusBar_summary">在主屏幕上，浅色背景使用深色图标，深色背景使用浅色图标。</string>
+    <string name="hideClockOnHome_title">主屏幕时钟淡出</string>
+    <string name="hideClockOnHome_summary">在主屏幕上淡出状态栏时钟，打开应用时淡入。</string>
+</resources>

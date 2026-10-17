@@ -72,6 +72,22 @@ fun DetailPaneSystemUI(
             Text(text = stringResource(CommonR.string.restartSystemUI))
         }
         DividerText(R.string.status_bar)
+        if (ONE_UI_VERSION >= 90000) {
+            SwitchItem(
+                title = stringResource(R.string.adaptiveHomeStatusBar_title),
+                summary = stringResource(R.string.adaptiveHomeStatusBar_summary),
+                icon = ImageVector.vectorResource(R.drawable.light_mode),
+                checked = uiState.statusBar.adaptiveHomeStatusBar,
+                onCheckedChange = { onEvent(SystemUIEvent.StatusBar.AdaptiveHomeStatusBar(it)) }
+            )
+            SwitchItem(
+                title = stringResource(R.string.hideClockOnHome_title),
+                summary = stringResource(R.string.hideClockOnHome_summary),
+                icon = ImageVector.vectorResource(R.drawable.nest_clock_farsight_digital),
+                checked = uiState.statusBar.hideClockOnHome,
+                onCheckedChange = { onEvent(SystemUIEvent.StatusBar.HideClockOnHome(it)) }
+            )
+        }
         Column {
             var padding by remember {
                 mutableFloatStateOf(uiState.statusBar.statusBarLeftPaddingDp)
@@ -782,6 +798,11 @@ fun DetailPaneSystemUI(
             )
         }
 
+        if (ONE_UI_VERSION >= 90000) {
+            DividerText(R.string.fod_lockscreen)
+            FodItem(uiState.fod, onEvent)
+        }
+
         DividerText(R.string.notification)
         Column {
             var expanded by rememberSaveable { mutableStateOf(false) }
@@ -976,7 +997,19 @@ private fun powerMenuActionTitle(actionName: String): Int = when (actionName) {
 }
 
 sealed interface SystemUIEvent {
+    sealed interface Fod : SystemUIEvent {
+        data class Enabled(val value: Boolean) : Fod
+        data class Size(val value: Int) : Fod
+        data class SelectIcon(val slot: Int, val digest: String) : Fod
+        data object RemoveIcon : Fod
+    }
     sealed interface StatusBar : SystemUIEvent {
+        @JvmInline
+        value class AdaptiveHomeStatusBar(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideClockOnHome(val value: Boolean) : StatusBar
+
         @JvmInline
         value class ModifyStatusBarLeftPadding(val value: Boolean) : StatusBar
 
@@ -1184,6 +1217,14 @@ sealed interface SystemUIEvent {
 
 fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
     when (event) {
+        is SystemUIEvent.Fod -> updateFod { current ->
+            when (event) {
+                is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
+                is SystemUIEvent.Fod.Size -> current.copy(sizePercent = event.value.coerceIn(50, 150))
+                is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest)
+                SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "")
+            }
+        }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)
         is SystemUIEvent.QS -> onQSEvent(event)
         is SystemUIEvent.AOD -> onAODEvent(event)
@@ -1195,6 +1236,16 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
 private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
     updateData { preference ->
         when (event) {
+            is SystemUIEvent.StatusBar.AdaptiveHomeStatusBar -> preference.copy(
+                systemUI = preference.systemUI.copy(statusBar = preference.systemUI.statusBar.copy(
+                    adaptiveHomeStatusBar = event.value
+                ))
+            )
+            is SystemUIEvent.StatusBar.HideClockOnHome -> preference.copy(
+                systemUI = preference.systemUI.copy(statusBar = preference.systemUI.statusBar.copy(
+                    hideClockOnHome = event.value
+                ))
+            )
             is SystemUIEvent.StatusBar.ModifyStatusBarLeftPadding -> {
                 preference.copy(
                     systemUI = preference.systemUI.copy(

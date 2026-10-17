@@ -6,6 +6,12 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- Only this signing identity may notify the injected FOD receivers. -->
+    <permission
+        android:name="${applicationId}.permission.FOD_REFRESH"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.FOD_REFRESH" />
+
     <uses-permission
         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />
@@ -19,6 +25,7 @@
     <queries>
         <package android:name="com.android.settings" />
         <package android:name="com.android.systemui" />
+        <package android:name="com.samsung.android.biometrics.app.setting" />
         <package android:name="com.samsung.android.app.notes" />
         <package android:name="com.samsung.android.app.sketchbook" />
         <package android:name="com.samsung.android.app.telephonyui" />

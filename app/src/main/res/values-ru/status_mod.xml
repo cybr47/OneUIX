@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="adaptiveHomeStatusBar_title">Адаптивная строка состояния на главном экране</string>
+    <string name="adaptiveHomeStatusBar_summary">Тёмные значки на светлом фоне и светлые значки на тёмном фоне главного экрана.</string>
+    <string name="hideClockOnHome_title">Плавное скрытие часов на главном экране</string>
+    <string name="hideClockOnHome_summary">Плавно скрывать часы на главном экране и показывать при открытии приложения.</string>
+</resources>
