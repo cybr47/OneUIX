@@ -148,7 +148,7 @@ internal object HomeStatusBar {
             // be treated as Home. SystemUI already has permission to read the current task.
             homeTask = runCatching {
                 val task = context.getSystemService(ActivityManager::class.java).getRunningTasks(1).firstOrNull()
-                val configuration = task?.configuration?.reflect?.get("windowConfiguration")
+                val configuration = task?.reflect?.get("configuration")?.reflect?.get("windowConfiguration")
                 configuration?.reflect?.call("getActivityType") == 2 &&
                     task?.topActivity?.packageName == "com.sec.android.app.launcher"
             }.getOrDefault(false)
