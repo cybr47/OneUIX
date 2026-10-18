@@ -17,6 +17,7 @@ import android.view.animation.AccelerateDecelerateInterpolator
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.common.StatusBarAppearance
+import io.github.soclear.oneuix.hook.LauncherStatusBarBridge
 import io.github.soclear.oneuix.hook.util.afterAttachTry
 import io.github.soclear.oneuix.hook.util.reflect
 import io.github.soclear.oneuix.hook.util.xlog
@@ -25,7 +26,7 @@ import java.lang.reflect.Proxy
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
 
-/** Uses SystemUI's own task and composition notifications. No launcher IPC or screen capture. */
+/** Uses native task/composition notifications and the launcher's drawer colour events. */
 @SuppressLint("PrivateApi")
 internal object HomeStatusBar {
     context(module: XposedModule)
@@ -58,6 +59,7 @@ internal object HomeStatusBar {
         private var tintActive = false
         private var homeTask = false
         private var recentsTask = false
+        private var drawerOpen: Boolean? = null
         private var samplers = emptyList<Any>()
         private val regions = arrayOf(Rect(), Rect())
         private val darkBackground = arrayOfNulls<Boolean>(2)
@@ -121,7 +123,21 @@ internal object HomeStatusBar {
                     result
                 }
             }
-            if (options.adaptiveHomeStatusBar) safely("colour hooks") { installAppearanceHooks() }
+            if (options.adaptiveHomeStatusBar) {
+                safely("colour hooks") { installAppearanceHooks() }
+                safely("launcher state") {
+                    LauncherStatusBarBridge.listenForState(context, main) { open ->
+                        drawerOpen = open
+                        safely("drawer handoff") {
+                            updateSampling()
+                            updateAppearance()
+                        }
+                        scheduleRefresh()
+                    }
+                    // Also works when only SystemUI restarts while the drawer is already open.
+                    LauncherStatusBarBridge.query(context)
+                }
+            }
             module.hook(binder.declaredMethods.single { it.name == "bind" }).intercept { chain ->
                 val result = chain.proceed()
                 val view = chain.args.firstOrNull() as? View
@@ -316,7 +332,8 @@ internal object HomeStatusBar {
         }
 
         private fun windowAllowsSampling() =
-            StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, recentsTask)
+            StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, recentsTask) &&
+                StatusBarAppearance.launcherAllowsAdaptiveTint(drawerOpen, recentsTask)
 
         private fun installAppearanceHooks() {
             // Feed the native appearance pipeline, not its final DarkIconDispatcher output.

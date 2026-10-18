@@ -21,6 +21,10 @@ object StatusBarAppearance {
         packageName == null || packageName == "com.sec.android.app.launcher" ||
             (recentsTask && packageName == "com.android.systemui")
 
+    /** Keep the native tint until the launcher identifies Home; Recents is a separate task. */
+    fun launcherAllowsAdaptiveTint(drawerOpen: Boolean?, recentsTask: Boolean): Boolean =
+        recentsTask || drawerOpen == false
+
     fun isHomeAppearanceActive(
         homeTask: Boolean,
         interactive: Boolean,

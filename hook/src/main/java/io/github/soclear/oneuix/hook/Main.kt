@@ -134,6 +134,10 @@ class Main : XposedModule() {
             }
 
             Package.LAUNCHER -> {
+                if (processName == Package.LAUNCHER && ONE_UI_VERSION >= 90000 &&
+                    preference.systemUI.statusBar.adaptiveHomeStatusBar) {
+                    LauncherStatusBar.install()
+                }
                 if (preference.other.showMemoryUsageInRecents) {
                     Launcher.showMemoryUsageInRecents()
                 }
