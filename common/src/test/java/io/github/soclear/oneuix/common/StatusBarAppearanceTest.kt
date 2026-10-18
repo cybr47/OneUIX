@@ -50,14 +50,6 @@ class StatusBarAppearanceTest {
         assertEquals("100%", StatusBarAppearance.batteryLabel(Int.MAX_VALUE, false, false, false))
     }
 
-    @Test fun duplicateTintRefreshesAreIgnoredButRealChangesAreApplied() {
-        assertTrue(StatusBarAppearance.needsTintUpdate(false, null, 1f, true))
-        assertFalse(StatusBarAppearance.needsTintUpdate(true, 1f, 1f, true))
-        assertTrue(StatusBarAppearance.needsTintUpdate(true, 0f, 1f, true))
-        assertTrue(StatusBarAppearance.needsTintUpdate(true, 1f, 1f, false))
-        assertTrue(StatusBarAppearance.needsTintUpdate(true, null, 1f, true))
-    }
-
     @Test fun recentsDetectionDoesNotIncludeOrdinaryApplications() {
         assertTrue(StatusBarAppearance.isRecentsTask(3, "com.android.systemui", null))
         assertTrue(StatusBarAppearance.isRecentsTask(2, "com.sec.android.app.launcher", "com.samsung.RecentsActivity"))

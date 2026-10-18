@@ -20,6 +20,7 @@ import io.github.soclear.oneuix.common.StatusBarAppearance
 import io.github.soclear.oneuix.hook.util.afterAttachTry
 import io.github.soclear.oneuix.hook.util.reflect
 import io.github.soclear.oneuix.hook.util.xlog
+import java.lang.reflect.Constructor
 import java.lang.reflect.Proxy
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
@@ -46,30 +47,23 @@ internal object HomeStatusBar {
         }
         private val clocks = WeakHashMap<View, ClockFade>()
         private var stateController: Any? = null
-        private var dispatcher: Any? = null
+        private var appearanceRepository: Any? = null
+        private var sampledAppearanceFlow: Any? = null
+        private var appearanceRegionConstructor: Constructor<*>? = null
+        private var nativeSampledRegions: Any? = null
+        private var publishedRegions: List<Any>? = null
+        private var windowPackage: String? = null
         private var statusView: View? = null
         private var homeActive = false
         private var tintActive = false
-        private var deferNativeRestore = false
         private var homeTask = false
-        private var ownTintUpdate = false
-        private var nativeIntensity = 0f
-        private var nativeAreas = arrayListOf<Rect>()
-        private var tintOverridden = false
-        private var lastAppliedIntensity: Float? = null
-        private var lastAppliedAreas: List<Rect>? = null
+        private var recentsTask = false
         private var samplers = emptyList<Any>()
         private val regions = arrayOf(Rect(), Rect())
         private val darkBackground = arrayOfNulls<Boolean>(2)
         private var sampling = false
         private val reported = mutableSetOf<String>()
         private val refresh = Runnable { safely("home state") { refreshHome() } }
-        // One-shot fallback only: native SystemUI tint callbacks normally complete the
-        // transition sooner. Never poll window state or keep sampling outside Home/Recents.
-        private val delayedTintRestore = Runnable {
-            safely("native tint fallback") { restoreNativeTint() }
-        }
-        private var restorePending = false
         private val transitionAlpha = View::class.java.getDeclaredMethod("setTransitionAlpha", Float::class.javaPrimitiveType)
             .apply { isAccessible = true }
         private val getTransitionAlpha = View::class.java.getDeclaredMethod("getTransitionAlpha")
@@ -127,7 +121,7 @@ internal object HomeStatusBar {
                     result
                 }
             }
-            if (options.adaptiveHomeStatusBar) safely("colour hooks") { installTintHooks() }
+            if (options.adaptiveHomeStatusBar) safely("colour hooks") { installAppearanceHooks() }
             module.hook(binder.declaredMethods.single { it.name == "bind" }).intercept { chain ->
                 val result = chain.proceed()
                 val view = chain.args.firstOrNull() as? View
@@ -168,6 +162,7 @@ internal object HomeStatusBar {
                 )
             }.getOrDefault(false to false)
             homeTask = isHome
+            recentsTask = isRecents
             val controller = stateController
             val state = runCatching { controller?.reflect?.call("getState") as? Int }.getOrNull()
             val expanded = runCatching { controller?.reflect?.call("isExpanded") as? Boolean }.getOrNull() ?: true
@@ -181,12 +176,10 @@ internal object HomeStatusBar {
             tintActive = StatusBarAppearance.isHomeAppearanceActive(
                 homeTask || isRecents, interactive, locked, state, expanded, dozing || dreaming
             )
-            deferNativeRestore = interactive && !locked && state == 0 &&
-                !expanded && !dozing && !dreaming
             clocks.keys.toList().forEach { setClockHidden(it, homeActive) }
             if (options.adaptiveHomeStatusBar) {
                 safely("sampling") { updateSampling() }
-                safely("tint") { updateTint() }
+                safely("tint") { updateAppearance() }
             }
         }
 
@@ -234,9 +227,6 @@ internal object HomeStatusBar {
             if (statusView === view) return
             statusView?.let { old -> destroySamplers(old) }
             statusView = view
-            // A newly bound status view must receive its first tint even if the value is unchanged.
-            lastAppliedIntensity = null
-            lastAppliedAreas = null
             view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {
                     statusView = v
@@ -249,7 +239,7 @@ internal object HomeStatusBar {
                         sampling = false
                         darkBackground.fill(null)
                         statusView = null
-                        safely("tint restore") { updateTint() }
+                        safely("tint restore") { updateAppearance() }
                     }
                 }
             })
@@ -268,7 +258,8 @@ internal object HomeStatusBar {
 
         private fun updateSampling() {
             val view = statusView
-            val enabled = tintActive && view?.isAttachedToWindow == true && view.width > 0 && view.height > 0
+            val enabled = tintActive && windowAllowsSampling() && sampledAppearanceFlow != null &&
+                view?.isAttachedToWindow == true && view.width > 0 && view.height > 0
             if (!enabled) {
                 if (sampling) samplers.forEach { it.reflect.call("stop") }
                 sampling = false
@@ -295,11 +286,11 @@ internal object HomeStatusBar {
                         val listener = proxy(callback) { name, args ->
                             when (name) {
                                 "getSampledRegion" -> Rect(regions[index])
-                                "isSamplingEnabled" -> tintActive
+                                "isSamplingEnabled" -> tintActive && windowAllowsSampling()
                                 "onRegionDarknessChanged" -> {
-                                    if (sampling && tintActive && statusView === view) {
+                                    if (sampling && tintActive && windowAllowsSampling() && statusView === view) {
                                         darkBackground[index] = args?.firstOrNull() as? Boolean
-                                        safely("sample tint") { updateTint() }
+                                        safely("sample tint") { updateAppearance() }
                                     }
                                     null
                                 }
@@ -324,127 +315,95 @@ internal object HomeStatusBar {
             }
         }
 
-        private fun hasAdaptiveColours() = tintActive && sampling && darkBackground.all { it != null }
-        private fun homeIntensity() = if (darkBackground.any { it == false }) 1f else 0f
-        private fun homeAreas(): ArrayList<Rect> = ArrayList(regions.indices.filter {
-            darkBackground[it] == false
-        }.map { index -> Rect(regions[index]).apply { top = 0 } })
+        private fun windowAllowsSampling() =
+            StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, recentsTask)
 
-        private fun installTintHooks() {
-            val type = loader.loadClass("com.android.systemui.statusbar.phone.DarkIconDispatcherImpl")
-            val apply = type.getDeclaredMethod("applyDarkIntensity", Float::class.javaPrimitiveType)
-            val setAreas = type.getDeclaredMethod("setIconsDarkArea", ArrayList::class.java)
-            val clearAreas = type.getDeclaredMethod("clearIconsDarkArea")
-            type.getDeclaredField("mTintAreas") // Validate before installing hooks.
-            type.declaredConstructors.forEach { constructor ->
+        private fun installAppearanceHooks() {
+            // Feed the native appearance pipeline, not its final DarkIconDispatcher output.
+            // LightBarController then owns both the rendered colour and animation state.
+            val repository = loader.loadClass(
+                "com.android.systemui.statusbar.data.repository.StatusBarModePerDisplayRepositoryImpl"
+            )
+            val callback = loader.loadClass(repository.name + "\$commandQueueCallback\$1")
+            val flowField = repository.getDeclaredField("_sampledAppearanceRegions").apply { isAccessible = true }
+            val repositoryField = callback.getDeclaredField("this\$0").apply { isAccessible = true }
+            val attributesChanged = callback.declaredMethods.single {
+                it.name == "onSystemBarAttributesChanged" && it.parameterCount == 8 &&
+                    it.parameterTypes[6] == String::class.java
+            }
+            val regionType = loader.loadClass("com.android.internal.view.AppearanceRegion")
+            appearanceRegionConstructor = regionType.getConstructor(Int::class.javaPrimitiveType, Rect::class.java)
+            // Validate the full contract before enabling sampling or installing any hook.
+            flowField.type.getDeclaredMethod("getValue")
+            flowField.type.getDeclaredMethod("setValue", Any::class.java)
+            flowField.type.getDeclaredMethod("compareAndSet", Any::class.java, Any::class.java)
+            repository.declaredConstructors.filter {
+                it.parameterTypes.getOrNull(1) == Int::class.javaPrimitiveType
+            }.forEach { constructor ->
                 module.hook(constructor).intercept { chain ->
                     val result = chain.proceed()
-                    if (chain.args.firstOrNull() == 0) {
-                        dispatcher = chain.thisObject
-                        nativeIntensity = (dispatcher?.reflect?.get("mDarkIntensity") as? Float) ?: 0f
+                    if (chain.args[1] == 0) safely("appearance repository") {
+                        restoreNativeAppearance()
+                        appearanceRepository = chain.thisObject
+                        sampledAppearanceFlow = flowField.get(chain.thisObject)
+                        windowPackage = null
                         scheduleRefresh()
                     }
                     result
                 }
             }
-            module.hook(apply).intercept { chain ->
-                if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
-                nativeIntensity = chain.args[0] as Float
-                if (!hasAdaptiveColours()) {
-                    val result = chain.proceed()
-                    // A real SystemUI intensity event supersedes our previous sampled tint.
-                    // Avoid restoring a stale Home value during a window transition.
-                    if (!tintActive && tintOverridden) {
-                        cancelPendingRestore()
-                        tintOverridden = false
-                        lastAppliedIntensity = null
-                        lastAppliedAreas = null
+            module.hook(attributesChanged).intercept { chain ->
+                if (chain.args[0] != 0 || repositoryField.get(chain.thisObject) !== appearanceRepository) {
+                    return@intercept chain.proceed()
+                }
+                // This main-thread window event can precede the task-stack notification.
+                // Stop accepting Home samples as soon as an app owns the status bar.
+                windowPackage = chain.args[6] as? String
+                val result = chain.proceed()
+                safely("window appearance handoff") {
+                    if (!windowAllowsSampling()) {
+                        updateSampling()
+                        // Forward the new app attributes FIRST. Clearing the sample input
+                        // now exposes those attributes, never a cached Home tint.
+                        restoreNativeAppearance()
                     }
-                    return@intercept result
                 }
-                val args = chain.args.toTypedArray()
-                args[0] = homeIntensity()
-                chain.proceed(args)
-            }
-            module.hook(setAreas).intercept { chain ->
-                if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
-                nativeAreas = ArrayList((chain.args[0] as? List<*>)?.filterIsInstance<Rect>()?.map { Rect(it) }.orEmpty())
-                if (!hasAdaptiveColours()) return@intercept chain.proceed()
-                val args = chain.args.toTypedArray()
-                args[0] = homeAreas()
-                chain.proceed(args)
-            }
-            module.hook(clearAreas).intercept { chain ->
-                if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
-                nativeAreas.clear()
-                if (hasAdaptiveColours()) {
-                    // The native clear is a transient intermediate state before the next
-                    // app-provided tint. Running it while the override is active briefly
-                    // removes the custom tint regions and can blank the icons for a frame.
-                    // Keep our tint in place; nativeRegions remains empty for handoff.
-                    null
-                } else {
-                    chain.proceed()
-                }
+                scheduleRefresh()
+                result
             }
         }
 
-        private fun cancelPendingRestore() {
-            main.removeCallbacks(delayedTintRestore)
-            restorePending = false
+        private fun restoreNativeAppearance() {
+            val previous = publishedRegions ?: return
+            val flow = sampledAppearanceFlow ?: return
+            // Do not overwrite a newer value from Samsung's own region sampler.
+            flow.reflect.call("compareAndSet", previous, nativeSampledRegions ?: emptyList<Any>())
+            publishedRegions = null
+            nativeSampledRegions = null
         }
 
-        private fun restoreNativeTint() {
-            cancelPendingRestore()
-            if (!tintOverridden || hasAdaptiveColours()) return
-            val target = dispatcher ?: return
-            ownTintUpdate = true
-            try {
-                target.reflect.call("setIconsDarkArea", ArrayList(nativeAreas))
-                target.reflect.call("applyDarkIntensity", nativeIntensity)
-                tintOverridden = false
-                lastAppliedIntensity = null
-                lastAppliedAreas = null
-            } finally { ownTintUpdate = false }
-        }
-
-        private fun updateTint() {
-            val target = dispatcher ?: return
-            if (!hasAdaptiveColours()) {
-                if (!tintOverridden) return
-                if (tintActive && sampling) {
-                    // Keep the last tint until the next region sample arrives.
-                    cancelPendingRestore()
-                } else if (deferNativeRestore) {
-                    // Samsung can detach the status view while launching an app. Keep the
-                    // last tint through that gap instead of briefly restoring a stale
-                    // native colour. Samsung's next tint callback still takes precedence;
-                    // the single delayed restore is only a bounded fallback.
-                    if (!restorePending) {
-                        restorePending = true
-                        main.postDelayed(delayedTintRestore, 300L)
-                    }
-                } else {
-                    // Lockscreen, shade, screen off and detached views restore immediately.
-                    restoreNativeTint()
-                }
+        private fun updateAppearance() {
+            val flow = sampledAppearanceFlow ?: return
+            if (!tintActive || !windowAllowsSampling()) {
+                // Samsung's transition controller synchronizes this input change with the
+                // app animation, including when task and window callbacks arrive out of order.
+                restoreNativeAppearance()
                 return
             }
-            cancelPendingRestore()
-            val desiredIntensity = homeIntensity()
-            val desiredAreas = homeAreas()
-            if (!StatusBarAppearance.needsTintUpdate(
-                    tintOverridden, lastAppliedIntensity, desiredIntensity,
-                    lastAppliedAreas == desiredAreas
-                )) return
-            ownTintUpdate = true
-            try {
-                target.reflect.call("setIconsDarkArea", desiredAreas)
-                target.reflect.call("applyDarkIntensity", desiredIntensity)
-                tintOverridden = true
-                lastAppliedIntensity = desiredIntensity
-                lastAppliedAreas = desiredAreas.map(::Rect)
-            } finally { ownTintUpdate = false }
+            // Preserve the current input during a view rebind or until BOTH sides are ready.
+            if (!sampling || darkBackground.any { it == null }) return
+            val constructor = appearanceRegionConstructor ?: return
+            val desired = regions.indices.map { index ->
+                constructor.newInstance(
+                    if (darkBackground[index] == false) 8 else 0, // APPEARANCE_LIGHT_STATUS_BARS
+                    Rect(regions[index]).apply { top = 0 }
+                )
+            }
+            val current = flow.reflect.call("getValue")
+            if (current == desired) return
+            if (publishedRegions == null || current != publishedRegions) nativeSampledRegions = current
+            flow.reflect.call("setValue", desired)
+            publishedRegions = desired
         }
 
         private fun proxy(type: Class<*>, callback: (String, Array<out Any?>?) -> Any?): Any =

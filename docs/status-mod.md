@@ -11,8 +11,11 @@ reboot after enabling its System UI scope.
   the composition below the status-bar surface, independently on the left and
   right. It receives luminance callbacks; it does not capture or store screenshots.
   Native sampling thresholds avoid reacting to insignificant brightness changes.
-- Colours go through `DarkIconDispatcherImpl`, including its Compose flow.
-  The last native tint and regions are restored when leaving Home.
+- Samples are supplied to Samsung's existing
+  `StatusBarModePerDisplayRepositoryImpl._sampledAppearanceRegions` input.
+  Its normal `LightBarControllerImpl` / `LightBarTransitionsController` path owns
+  the icon colour and app-transition animation together. The hook no longer
+  intercepts `DarkIconDispatcherImpl` or writes its final intensity/regions.
 - The clock fades over 250 ms using transition alpha, preserving its layout space
   and Samsung's native alpha. Rapid navigation reverses from the current opacity.
   System animation-disable settings are respected.
@@ -23,12 +26,16 @@ reboot after enabling its System UI scope.
   when unlocked and the shade is closed. The clock option remains Home-only.
   If Samsung's overview is not exposed as a distinct task, the stock tint remains;
   confirm the Recents result on the device.
-- Repeated task/layout callbacks no longer force duplicate SystemUI tint dispatches
-  when brightness and tint areas have not changed. Native clear-area callbacks are
-  deferred while adaptive sampling is active, avoiding a transient icon redraw.
-- Native app tint callbacks take precedence as soon as Home/Recents is left.
-  A single 300 ms fallback restores the prior native tint only if no callback arrives;
-  there is no repeated polling. Lock, shade and screen-off restore immediately.
+- Identical samples do not produce another state-flow update. Both sides must have
+  a sample before publishing; view rebinds retain the current appearance input.
+- The native `onSystemBarAttributesChanged` callback identifies the window owner,
+  so a new app can stop Home sampling before its task notification arrives. New
+  app attributes are forwarded before releasing the sampled input. Task changes,
+  lock, shade and screen-off also release it through the native pipeline.
+  There is no cached final tint replay or 300 ms restoration timer.
+- Releasing the input uses compare-and-set so it cannot replace a newer value
+  written by Samsung's sampler. The repository, callback and flow methods were
+  checked against the supplied One UI 9 SystemUI APK; visual validation is pending.
 - Sampling stops away from Home/Recents and listeners are destroyed with the status view.
   If the native sampling contract is unavailable, stock colours remain in use.
 
@@ -61,5 +68,6 @@ another firmware may require updated names. It must still be tested on a phone.
    in both light/dark icon modes. Also check an RTL language if used.
 4. Turn the new options off and restart SystemUI; stock behaviour should return.
 
-CI runs the preference/format/state tests, existing tests, hook lint and an APK
-build. These checks cannot replace the device checks above.
+The status-mod debug workflow runs unit tests, hook lint and an APK build. The
+regular CI workflow on `dev` builds and verifies the signed debug APK. These
+checks cannot replace the device checks above, especially app-opening transitions.
