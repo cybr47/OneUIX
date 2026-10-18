@@ -57,7 +57,7 @@ class StatusBarAppearanceTest {
         assertFalse(StatusBarAppearance.isRecentsTask(1, "com.android.vending", "com.example.RecentsActivity"))
         assertFalse(StatusBarAppearance.isRecentsTask(2, "com.sec.android.app.launcher", "com.sec.android.app.launcher.HomeActivity"))
         assertFalse(StatusBarAppearance.isRecentsTask(null, null, null))
-        // Recents tint must still respect the regular unlocked/interactive safeguards.
+        // Home tint still respects the regular unlocked/interactive safeguards.
         assertTrue(StatusBarAppearance.isHomeAppearanceActive(true, true, false, 0, false, false))
         assertFalse(StatusBarAppearance.isHomeAppearanceActive(true, true, true, 0, false, false))
         assertFalse(StatusBarAppearance.isHomeAppearanceActive(true, true, false, 0, true, false))

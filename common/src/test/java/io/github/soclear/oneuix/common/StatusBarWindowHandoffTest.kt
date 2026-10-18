@@ -5,10 +5,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StatusBarWindowHandoffTest {
-    @Test fun drawerKeepsStockTintButDoesNotDisableRecentsOrReturningHome() {
+    @Test fun drawerAndRecentsKeepStockTintThenReturningHomeCanAdaptAgain() {
         assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(false, false)) // Home
         assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(true, false)) // Drawer
-        assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(true, true)) // Recents over drawer
+        assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(true, true)) // Recents over drawer
         assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(true, false)) // Back to drawer
         assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(false, false)) // Back Home
     }
@@ -17,7 +17,14 @@ class StatusBarWindowHandoffTest {
         assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(null, false))
         assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(true, false))
         assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(false, false))
-        assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(null, true))
+        assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(null, true))
+    }
+
+    @Test fun launcherRecentsSignalWinsBeforeTheTaskCallbackArrives() {
+        assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(true, false))
+        // A stale Home signal cannot override an identified Recents task either.
+        assertFalse(StatusBarAppearance.launcherAllowsAdaptiveTint(false, true))
+        assertTrue(StatusBarAppearance.launcherAllowsAdaptiveTint(false, false))
     }
 
     @Test fun appWindowWinsBeforeTheHomeTaskCallbackArrives() {
@@ -37,9 +44,10 @@ class StatusBarWindowHandoffTest {
         assertTrue(StatusBarAppearance.windowAllowsAdaptiveTint("com.sec.android.app.launcher", false))
     }
 
-    @Test fun launcherOverviewAndIdentifiedSystemUiRecentsRemainEligible() {
-        assertTrue(StatusBarAppearance.windowAllowsAdaptiveTint("com.sec.android.app.launcher", true))
-        assertTrue(StatusBarAppearance.windowAllowsAdaptiveTint("com.android.systemui", true))
+    @Test fun launcherOverviewAndIdentifiedSystemUiRecentsRetainNativeColours() {
+        assertFalse(StatusBarAppearance.windowAllowsAdaptiveTint("com.sec.android.app.launcher", true))
+        assertFalse(StatusBarAppearance.windowAllowsAdaptiveTint("com.android.systemui", true))
+        assertFalse(StatusBarAppearance.windowAllowsAdaptiveTint(null, true))
         assertFalse(StatusBarAppearance.windowAllowsAdaptiveTint("com.android.systemui", false))
         assertFalse(StatusBarAppearance.windowAllowsAdaptiveTint("com.example.launcher", true))
     }

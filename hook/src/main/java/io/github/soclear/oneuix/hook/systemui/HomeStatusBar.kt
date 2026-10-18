@@ -26,7 +26,7 @@ import java.lang.reflect.Proxy
 import java.util.WeakHashMap
 import java.util.concurrent.Executors
 
-/** Uses native task/composition notifications and the launcher's drawer colour events. */
+/** Uses native task/composition notifications and the launcher's surface events. */
 @SuppressLint("PrivateApi")
 internal object HomeStatusBar {
     context(module: XposedModule)
@@ -59,7 +59,7 @@ internal object HomeStatusBar {
         private var tintActive = false
         private var homeTask = false
         private var recentsTask = false
-        private var drawerOpen: Boolean? = null
+        private var nativeLauncherAppearance: Boolean? = null
         private var samplers = emptyList<Any>()
         private val regions = arrayOf(Rect(), Rect())
         private val darkBackground = arrayOfNulls<Boolean>(2)
@@ -126,15 +126,15 @@ internal object HomeStatusBar {
             if (options.adaptiveHomeStatusBar) {
                 safely("colour hooks") { installAppearanceHooks() }
                 safely("launcher state") {
-                    LauncherStatusBarBridge.listenForState(context, main) { open ->
-                        drawerOpen = open
-                        safely("drawer handoff") {
+                    LauncherStatusBarBridge.listenForState(context, main) { nativeAppearance ->
+                        nativeLauncherAppearance = nativeAppearance
+                        safely("launcher handoff") {
                             updateSampling()
                             updateAppearance()
                         }
                         scheduleRefresh()
                     }
-                    // Also works when only SystemUI restarts while the drawer is already open.
+                    // Also works when only SystemUI restarts in the drawer or Recents.
                     LauncherStatusBarBridge.query(context)
                 }
             }
@@ -190,7 +190,7 @@ internal object HomeStatusBar {
                 homeTask, interactive, locked, state, expanded, dozing || dreaming
             )
             tintActive = StatusBarAppearance.isHomeAppearanceActive(
-                homeTask || isRecents, interactive, locked, state, expanded, dozing || dreaming
+                homeTask && !isRecents, interactive, locked, state, expanded, dozing || dreaming
             )
             clocks.keys.toList().forEach { setClockHidden(it, homeActive) }
             if (options.adaptiveHomeStatusBar) {
@@ -333,7 +333,7 @@ internal object HomeStatusBar {
 
         private fun windowAllowsSampling() =
             StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, recentsTask) &&
-                StatusBarAppearance.launcherAllowsAdaptiveTint(drawerOpen, recentsTask)
+                StatusBarAppearance.launcherAllowsAdaptiveTint(nativeLauncherAppearance, recentsTask)
 
         private fun installAppearanceHooks() {
             // Feed the native appearance pipeline, not its final DarkIconDispatcher output.

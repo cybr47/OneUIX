@@ -11,22 +11,22 @@ import io.github.soclear.oneuix.common.Package
 
 /** One Boolean, sent only between the scoped launcher and SystemUI processes. */
 internal object LauncherStatusBarBridge {
-    private val stateAction = BuildConfig.MODULE_APPLICATION_ID + ".statusbar.DRAWER_STATE"
-    private val queryAction = BuildConfig.MODULE_APPLICATION_ID + ".statusbar.QUERY_DRAWER"
-    private const val drawerExtra = "drawerOpen"
+    private val stateAction = BuildConfig.MODULE_APPLICATION_ID + ".statusbar.NATIVE_APPEARANCE_STATE"
+    private val queryAction = BuildConfig.MODULE_APPLICATION_ID + ".statusbar.QUERY_NATIVE_APPEARANCE"
+    private const val nativeAppearanceExtra = "nativeLauncherAppearance"
     // Both supplied Samsung APKs already hold this platform permission.
     private const val permission = "android.permission.STATUS_BAR_SERVICE"
 
     fun listenForState(context: Context, main: Handler, onState: (Boolean) -> Unit) =
         register(context, main, stateAction, Package.LAUNCHER) { intent ->
-            if (intent.hasExtra(drawerExtra)) onState(intent.getBooleanExtra(drawerExtra, true))
+            if (intent.hasExtra(nativeAppearanceExtra)) onState(intent.getBooleanExtra(nativeAppearanceExtra, true))
         }
 
     fun listenForQuery(context: Context, main: Handler, onQuery: () -> Unit) =
         register(context, main, queryAction, Package.SYSTEMUI) { onQuery() }
 
-    fun publish(context: Context, drawerOpen: Boolean) = send(context,
-        Intent(stateAction).setPackage(Package.SYSTEMUI).putExtra(drawerExtra, drawerOpen))
+    fun publish(context: Context, nativeLauncherAppearance: Boolean) = send(context,
+        Intent(stateAction).setPackage(Package.SYSTEMUI).putExtra(nativeAppearanceExtra, nativeLauncherAppearance))
 
     fun query(context: Context) = send(context, Intent(queryAction).setPackage(Package.LAUNCHER))
 

@@ -28,6 +28,11 @@ reboot after enabling its System UI scope.
   `HomescreenPot.updateSystemUIColor(boolean)`, the calls used by Samsung's
   `WhiteBgColorUpdater`. It releases the sampled input in the drawer, allowing
   the existing native appearance request to take effect. It does not recolour labels.
+- Recents also retains Samsung's native status-bar handling, including its default
+  white icons. Identified Recents tasks are excluded from sampling. The launcher's
+  `RecentsActivity.onResume()` event releases samples even before the task callback;
+  its lifecycle state also prevents a stale Home screen-manager reply from enabling
+  adaptive tint during a SystemUI restart in Recents. No white tint is forced.
 - Completed/cancelled screen transitions are reconciled with
   `HoneyScreenManager.getCurrentHoneyScreen()`. The hook does not depend on the
   search bar being visible. Only the main display and main launcher process participate.
@@ -36,10 +41,8 @@ reboot after enabling its System UI scope.
   There is no polling, service, persistent setting or per-frame broadcast. SystemUI
   asks for the current state after restarting, and retains stock Home colours until
   the launcher replies. If the launcher hook is unavailable, Home stays stock.
-- Adaptive colour sampling also applies to an identified Recents task/launcher overview
-  when unlocked and the shade is closed. The clock option remains Home-only.
-  If Samsung's overview is not exposed as a distinct task, the stock tint remains;
-  confirm the Recents result on the device.
+- Adaptive colour sampling applies only on Home. Drawer, Recents and other launcher
+  surfaces use native colours. The clock option retains its existing Home-task policy.
 - Identical samples do not produce another state-flow update. Both sides must have
   a sample before publishing; view rebinds retain the current appearance input.
 - The native `onSystemBarAttributesChanged` callback identifies the window owner,
@@ -50,7 +53,7 @@ reboot after enabling its System UI scope.
 - Releasing the input uses compare-and-set so it cannot replace a newer value
   written by Samsung's sampler. The repository, callback and flow methods were
   checked against the supplied One UI 9 SystemUI APK; visual validation is pending.
-- Sampling stops away from Home/Recents and listeners are destroyed with the status view.
+- Sampling stops away from Home and listeners are destroyed with the status view.
   If the native sampling contract is unavailable, stock colours remain in use.
 
 ## Battery compatibility
@@ -76,8 +79,9 @@ another firmware may require updated names. It must still be tested on a phone.
    Check notification icons, clock, signal and battery. Open an app and the shade;
    their native colours should return. Check wallpaper changes and rotation.
 2. Open/close the app drawer, cancel a partial swipe, and open a folder in the drawer.
-   Its status icons should stay white; Home and Recents should remain adaptive.
-   Repeat with Hide apps search bar enabled, and restart SystemUI while in the drawer.
+   Its status icons should stay white; Home should remain adaptive. Recents should
+   use Samsung's default colours when entered from Home, the drawer or an app.
+   Repeat with Hide apps search bar enabled, and restart SystemUI in the drawer and Recents.
    Return Home, open apps repeatedly, open Recents, lock/unlock and pull the shade.
    Check smooth clock fades, restoration and no shifting of adjacent icons.
 3. Try hide battery on/off with extra text on/off. With extra text enabled, test

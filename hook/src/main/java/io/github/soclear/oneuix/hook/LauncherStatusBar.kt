@@ -21,6 +21,7 @@ internal object LauncherStatusBar {
         private val main = Handler(Looper.getMainLooper())
         private var manager = WeakReference<Any>(null)
         private var lastPublished: Boolean? = null
+        private var recentsResumed = false
         private val reported = mutableSetOf<String>()
         private val loader = context.classLoader
         private val pot = loader.loadClass("com.honeyspace.common.entity.HoneyPot")
@@ -31,7 +32,7 @@ internal object LauncherStatusBar {
         private val screenManager = loader.loadClass("com.honeyspace.sdk.HoneyScreenManager")
         private val getScreen = screenManager.getDeclaredMethod("getCurrentHoneyScreen")
         private val screenName = loader.loadClass("com.honeyspace.sdk.HoneyScreen\$Name")
-        private val apps = screenName.getField("APPS").get(null)
+        private val homeScreen = screenName.getField("HOME").get(null)
         private val reconcile = Runnable { safely("screen state") { publishCurrent() } }
 
         private fun safely(part: String, action: () -> Unit) {
@@ -54,15 +55,19 @@ internal object LauncherStatusBar {
             return true
         }
 
-        private fun publish(drawerOpen: Boolean, force: Boolean = false) {
-            if (!force && lastPublished == drawerOpen) return
-            LauncherStatusBarBridge.publish(context, drawerOpen)
-            lastPublished = drawerOpen
+        private fun publish(nativeLauncherAppearance: Boolean, force: Boolean = false) {
+            if (!force && lastPublished == nativeLauncherAppearance) return
+            LauncherStatusBarBridge.publish(context, nativeLauncherAppearance)
+            lastPublished = nativeLauncherAppearance
         }
 
         private fun publishCurrent(force: Boolean = false) {
+            if (recentsResumed) {
+                publish(true, force)
+                return
+            }
             val current = manager.get() ?: return
-            publish(getScreen.invoke(current) == apps, force)
+            publish(getScreen.invoke(current) != homeScreen, force)
         }
 
         private fun scheduleReconcile() {
@@ -80,6 +85,9 @@ internal object LauncherStatusBar {
                 listOf(type.getDeclaredMethod("onShown"), type.getDeclaredMethod("onCancelScreenAnimation"))
             }
             val resume = loader.loadClass("com.sec.android.app.launcher.Launcher").getDeclaredMethod("onResume")
+            val recents = loader.loadClass("com.android.quickstep.RecentsActivity")
+            val recentsResume = recents.getDeclaredMethod("onResume")
+            val recentsPause = recents.getDeclaredMethod("onPause")
 
             // Validate the complete APK contract before registering or installing hooks.
             LauncherStatusBarBridge.listenForQuery(context, main) {
@@ -89,7 +97,7 @@ internal object LauncherStatusBar {
                 module.hook(method).intercept { chain ->
                     val result = chain.proceed()
                     safely("native colour event") {
-                        if (capture(chain.thisObject)) publish(isDrawer)
+                        if (capture(chain.thisObject)) publish(recentsResumed || isDrawer)
                     }
                     result
                 }
@@ -107,6 +115,24 @@ internal object LauncherStatusBar {
                 val result = chain.proceed()
                 if ((chain.thisObject as? Activity)?.display?.displayId == 0) {
                     main.post { safely("resume state") { publishCurrent(force = true) } }
+                }
+                result
+            }
+            // Recents can have its own Activity while Home's screen manager still says HOME.
+            // Release samples on its native lifecycle event, before a delayed task callback.
+            module.hook(recentsResume).intercept { chain ->
+                if ((chain.thisObject as? Activity)?.display?.displayId == 0) {
+                    recentsResumed = true
+                    safely("Recents handoff") { publish(true) }
+                }
+                chain.proceed()
+            }
+            module.hook(recentsPause).intercept { chain ->
+                val result = chain.proceed()
+                if ((chain.thisObject as? Activity)?.display?.displayId == 0) {
+                    recentsResumed = false
+                    // Home's next colour/resume event can re-enable adaptation.
+                    // Pausing Recents alone may instead mean an app is opening.
                 }
                 result
             }

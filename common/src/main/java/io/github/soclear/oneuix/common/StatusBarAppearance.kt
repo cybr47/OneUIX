@@ -18,12 +18,11 @@ object StatusBarAppearance {
 
     /** A native app-window event wins even while the task stack still reports Home. */
     fun windowAllowsAdaptiveTint(packageName: String?, recentsTask: Boolean): Boolean =
-        packageName == null || packageName == "com.sec.android.app.launcher" ||
-            (recentsTask && packageName == "com.android.systemui")
+        !recentsTask && (packageName == null || packageName == "com.sec.android.app.launcher")
 
-    /** Keep the native tint until the launcher identifies Home; Recents is a separate task. */
-    fun launcherAllowsAdaptiveTint(drawerOpen: Boolean?, recentsTask: Boolean): Boolean =
-        recentsTask || drawerOpen == false
+    /** Only Home is adaptive. Drawer, Recents and unknown launcher state retain native colours. */
+    fun launcherAllowsAdaptiveTint(nativeLauncherAppearance: Boolean?, recentsTask: Boolean): Boolean =
+        !recentsTask && nativeLauncherAppearance == false
 
     fun isHomeAppearanceActive(
         homeTask: Boolean,
