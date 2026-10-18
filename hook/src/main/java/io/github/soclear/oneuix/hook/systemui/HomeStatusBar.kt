@@ -53,7 +53,7 @@ internal object HomeStatusBar {
         private var publishedRegions: List<Any>? = null
         private var windowPackage: String? = null
         private var statusView: View? = null
-        private var homeActive = false
+        private var clockHidden = false
         private var tintActive = false
         private var homeTask = false
         private var recentsTask = false
@@ -116,18 +116,20 @@ internal object HomeStatusBar {
             }
             if (options.adaptiveHomeStatusBar) {
                 safely("colour hooks") { installAppearanceHooks() }
-                safely("launcher state") {
-                    LauncherStatusBarBridge.listenForState(context, main) { nativeAppearance ->
-                        nativeLauncherAppearance = nativeAppearance
-                        safely("launcher handoff") {
-                            updateSampling()
-                            updateAppearance()
-                        }
-                        scheduleRefresh()
+            }
+            // Both options need to tell Home from the app drawer: the tint to stay native in the
+            // drawer, and the clock to stay visible there.
+            safely("launcher state") {
+                LauncherStatusBarBridge.listenForState(context, main) { nativeAppearance ->
+                    nativeLauncherAppearance = nativeAppearance
+                    if (options.adaptiveHomeStatusBar) safely("launcher handoff") {
+                        updateSampling()
+                        updateAppearance()
                     }
-                    // Also works when only SystemUI restarts in the drawer or Recents.
-                    LauncherStatusBarBridge.query(context)
+                    scheduleRefresh()
                 }
+                // Also works when only SystemUI restarts in the drawer or Recents.
+                LauncherStatusBarBridge.query(context)
             }
             module.hook(binder.declaredMethods.single { it.name == "bind" }).intercept { chain ->
                 val result = chain.proceed()
@@ -177,13 +179,16 @@ internal object HomeStatusBar {
             val dreaming = runCatching { controller?.reflect?.call("isDreaming") as? Boolean }.getOrNull() ?: true
             val interactive = context.getSystemService(PowerManager::class.java).isInteractive
             val locked = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
-            homeActive = StatusBarAppearance.isHomeAppearanceActive(
-                homeTask, interactive, locked, state, expanded, dozing || dreaming
-            )
             tintActive = StatusBarAppearance.isHomeAppearanceActive(
                 homeTask && !isRecents, interactive, locked, state, expanded, dozing || dreaming
             )
-            clocks.values.toList().forEach { it.setHidden(homeActive) }
+            // The clock follows Home and Recents, but stays visible in the app drawer.
+            // Recents can be its own activity type, so it is not required to be a Home task.
+            clockHidden = StatusBarAppearance.isHomeAppearanceActive(
+                StatusBarAppearance.isClockSurface(isHome, isRecents, nativeLauncherAppearance),
+                interactive, locked, state, expanded, dozing || dreaming
+            )
+            clocks.values.toList().forEach { it.setHidden(clockHidden) }
             if (options.adaptiveHomeStatusBar) {
                 safely("sampling") { updateSampling() }
                 safely("tint") { updateAppearance() }
@@ -200,7 +205,7 @@ internal object HomeStatusBar {
                     v.removeOnAttachStateChangeListener(this)
                 }
             })
-            clocks[view]?.setHidden(homeActive)
+            clocks[view]?.setHidden(clockHidden)
             scheduleRefresh()
         }
 

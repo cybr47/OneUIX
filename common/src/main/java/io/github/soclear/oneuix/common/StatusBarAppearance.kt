@@ -24,6 +24,15 @@ object StatusBarAppearance {
     fun launcherAllowsAdaptiveTint(nativeLauncherAppearance: Boolean?, recentsTask: Boolean): Boolean =
         !recentsTask && nativeLauncherAppearance == false
 
+    /**
+     * Surfaces where the "Fade clock" option hides the clock: Home and Recents, never the app drawer.
+     * The launcher reports `true` for the drawer (and Recents), `false` for Home. When it has not
+     * reported yet (null) a launcher task is treated as Home, which was the behaviour before the
+     * launcher state was consulted.
+     */
+    fun isClockSurface(homeTask: Boolean, recentsTask: Boolean, nativeLauncherAppearance: Boolean?): Boolean =
+        recentsTask || (homeTask && nativeLauncherAppearance != true)
+
     fun isHomeAppearanceActive(
         homeTask: Boolean,
         interactive: Boolean,

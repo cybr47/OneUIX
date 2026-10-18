@@ -63,6 +63,22 @@ class StatusBarAppearanceTest {
         assertFalse(StatusBarAppearance.isHomeAppearanceActive(true, true, false, 0, true, false))
     }
 
+    @Test fun clockHidesOnHomeAndRecentsButNotInTheAppDrawer() {
+        // Home: launcher reports native appearance == false.
+        assertTrue(StatusBarAppearance.isClockSurface(true, false, false))
+        // App drawer: launcher task, native appearance == true.
+        assertFalse(StatusBarAppearance.isClockSurface(true, false, true))
+        // Recents, whether or not the task still reports Home and whatever the launcher state says.
+        assertTrue(StatusBarAppearance.isClockSurface(false, true, true))
+        assertTrue(StatusBarAppearance.isClockSurface(true, true, true))
+        assertTrue(StatusBarAppearance.isClockSurface(true, true, null))
+        // Not a launcher surface at all (an ordinary app).
+        assertFalse(StatusBarAppearance.isClockSurface(false, false, false))
+        assertFalse(StatusBarAppearance.isClockSurface(false, false, null))
+        // Launcher state not yet known: keep the earlier Home-task behaviour.
+        assertTrue(StatusBarAppearance.isClockSurface(true, false, null))
+    }
+
     @Test fun homeAppearanceRequiresUnlockedInteractiveHomeWithShadeClosed() {
         assertTrue(StatusBarAppearance.isHomeAppearanceActive(true, true, false, 0, false, false))
         assertFalse(StatusBarAppearance.isHomeAppearanceActive(false, true, false, 0, false, false))

@@ -3,7 +3,6 @@ package io.github.soclear.oneuix.hook.systemui
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
-import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -11,13 +10,21 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
-/** Collapse the clock through the native layout so notification capacity grows with its space. */
+/**
+ * Fade the clock with opacity while notification icons move into its space through the native layout.
+ *
+ * The clock keeps its full size and is never clipped while it moves, so no wipe edge is visible.
+ * Only the space it occupies in its parent shrinks (through a negative end margin), which is what
+ * lets the icons slide. Once fully hidden its width is set to zero, so it cannot take touches.
+ */
 internal class HomeClockTransition(private val clock: View) {
     private val originalAlpha = transitionAlpha(clock)
     private val originalAccessibility = clock.importantForAccessibility
-    private val originalClip = clock.clipBounds
     private var originalWidth = clock.layoutParams.width
+    private var originalEnd = (clock.layoutParams as? ViewGroup.MarginLayoutParams)?.marginEnd ?: 0
     private var appliedWidth: Int? = null
+    private var appliedEnd: Int? = null
+    private var naturalWidth = 0
     private var progress = 0f
     private var hidden = false
     private var animator: ValueAnimator? = null
@@ -30,13 +37,12 @@ internal class HomeClockTransition(private val clock: View) {
     private val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
         bindParent()
         if (appliedWidth != null) {
-            val params = clock.layoutParams
-            if (params.width != appliedWidth) {
-                originalWidth = params.width
-                params.width = appliedWidth!!
-                clock.layoutParams = params
+            adoptNativeLayout()
+            // Follow text/font changes while the clock still has its natural width.
+            if (progress > 0f && progress < 1f && clock.width > 0 && appliedWidth == originalWidth) {
+                naturalWidth = clock.width
             }
-            clipClock(minOf(clock.width, appliedWidth!!))
+            applyLayout()
             updateSpacing()
         }
     }
@@ -58,25 +64,21 @@ internal class HomeClockTransition(private val clock: View) {
         cancelAnimation()
         clock.importantForAccessibility = if (value) View.IMPORTANT_FOR_ACCESSIBILITY_NO else originalAccessibility
         // Native callers may replace LayoutParams during a configuration or clock-position change.
-        val params = clock.layoutParams
-        if (appliedWidth == null || params.width != appliedWidth) originalWidth = params.width
-        val startWidth = appliedWidth ?: clock.width
-        val endWidth = if (value) 0 else measureExpandedWidth()
+        if (appliedWidth == null) captureNativeLayout() else adoptNativeLayout()
+        // Expanded size of the current text/font, measured before the first frame of a transition.
+        if (progress <= 0f && appliedWidth == null && clock.width > 0) naturalWidth = clock.width
+        else if (progress >= 1f || naturalWidth <= 0) naturalWidth = measureExpandedWidth()
         val start = progress
         val end = if (value) 1f else 0f
         if (!ValueAnimator.areAnimatorsEnabled() || !clock.isShown || !clock.isLaidOut) {
-            render(end, endWidth)
+            render(end)
             finish()
             return
         }
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = (250L * abs(end - start)).roundToLong().coerceAtLeast(1L)
             interpolator = AccelerateDecelerateInterpolator()
-            addUpdateListener {
-                val fraction = it.animatedValue as Float
-                render(start + (end - start) * fraction,
-                    (startWidth + (endWidth - startWidth) * fraction).roundToInt())
-            }
+            addUpdateListener { render(start + (end - start) * it.animatedValue as Float) }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     animator = null
@@ -94,6 +96,19 @@ internal class HomeClockTransition(private val clock: View) {
             removeAllUpdateListeners()
         }
         animator = null
+    }
+
+    private fun captureNativeLayout() {
+        val params = clock.layoutParams
+        originalWidth = params.width
+        originalEnd = (params as? ViewGroup.MarginLayoutParams)?.marginEnd ?: 0
+    }
+
+    private fun adoptNativeLayout() {
+        val params = clock.layoutParams
+        if (appliedWidth != null && params.width != appliedWidth) originalWidth = params.width
+        val margins = params as? ViewGroup.MarginLayoutParams ?: return
+        if (appliedEnd != null && margins.marginEnd != appliedEnd) originalEnd = margins.marginEnd
     }
 
     private fun measureExpandedWidth(): Int {
@@ -118,19 +133,12 @@ internal class HomeClockTransition(private val clock: View) {
         return clock.measuredWidth
     }
 
-    private fun render(value: Float, width: Int) {
+    private fun render(value: Float) {
         progress = value.coerceIn(0f, 1f)
-        setTransitionAlpha(clock, originalAlpha * (1f - progress))
-        val params = clock.layoutParams
-        val nextWidth = width.coerceAtLeast(0)
-        appliedWidth = nextWidth
-        if (params.width != nextWidth) {
-            params.width = nextWidth
-            clock.layoutParams = params
-        }
-        // Text can draw beyond its bounds because Samsung disables clipChildren on this container.
-        // Keep its fading glyphs inside the space that the icons have not yet reclaimed.
-        clipClock(minOf(clock.width, nextWidth))
+        // Squared, so the clock is mostly gone before the icons arrive and appears after they leave.
+        val visible = 1f - progress
+        setTransitionAlpha(clock, originalAlpha * visible * visible)
+        applyLayout()
         updateSpacing()
         notifications?.let {
             // The same progress curve is retraced on reversal, without a fade or position jump.
@@ -139,10 +147,30 @@ internal class HomeClockTransition(private val clock: View) {
         }
     }
 
-    private fun clipClock(width: Int) {
-        val clip = Rect(0, 0, width.coerceAtLeast(0), clock.height)
-        originalClip?.let { if (!clip.intersect(it)) clip.setEmpty() }
-        clock.clipBounds = clip
+    /** Give the space back to the parent without resizing or clipping what the clock draws. */
+    private fun applyLayout() {
+        val params = clock.layoutParams
+        val margins = params as? ViewGroup.MarginLayoutParams
+        val gone = progress >= 1f
+        val width = when {
+            gone -> 0
+            margins != null || progress <= 0f -> originalWidth
+            // Without margins the only way to release space is to narrow the clock itself.
+            else -> (naturalWidth * (1f - progress)).roundToInt()
+        }
+        val end = if (gone || margins == null) originalEnd else originalEnd - (naturalWidth * progress).roundToInt()
+        appliedWidth = width
+        appliedEnd = end
+        var changed = false
+        if (params.width != width) {
+            params.width = width
+            changed = true
+        }
+        if (margins != null && margins.marginEnd != end) {
+            margins.marginEnd = end
+            changed = true
+        }
+        if (changed) clock.layoutParams = params
     }
 
     private fun bindParent() {
@@ -203,29 +231,35 @@ internal class HomeClockTransition(private val clock: View) {
     private fun finish() {
         notifications?.let { setTransitionAlpha(it, notificationAlpha) }
         if (!hidden) {
-            restoreWidth()
-            clock.clipBounds = originalClip
+            restoreLayout()
             restoreSpacing()
         }
     }
 
-    private fun restoreWidth() {
+    private fun restoreLayout() {
         val params = clock.layoutParams
-        if (params.width == appliedWidth) {
+        val margins = params as? ViewGroup.MarginLayoutParams
+        var changed = false
+        if (appliedWidth != null && params.width == appliedWidth) {
             params.width = originalWidth
-            clock.layoutParams = params
+            changed = true
         }
+        if (margins != null && appliedEnd != null && margins.marginEnd == appliedEnd) {
+            margins.marginEnd = originalEnd
+            changed = true
+        }
+        if (changed) clock.layoutParams = params
         appliedWidth = null
+        appliedEnd = null
     }
 
     fun release() {
         cancelAnimation()
         clock.removeOnLayoutChangeListener(layoutListener)
         parent?.removeOnLayoutChangeListener(layoutListener)
-        restoreWidth()
+        restoreLayout()
         restoreSpacing()
         setTransitionAlpha(clock, originalAlpha)
-        clock.clipBounds = originalClip
         clock.importantForAccessibility = originalAccessibility
         notifications?.let { setTransitionAlpha(it, notificationAlpha) }
         notifications = null
