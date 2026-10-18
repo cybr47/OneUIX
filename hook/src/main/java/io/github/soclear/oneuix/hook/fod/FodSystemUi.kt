@@ -78,7 +78,6 @@ object FodSystemUi {
                     }
                 }
             }
-            runtime.report("Installed fingerprint-only indication hooks")
         }
 
         fun installPopup() {
@@ -117,7 +116,6 @@ object FodSystemUi {
                 }
             }
             runtime.onChanged { toastTypes.keys.toList().forEach(::applyToast) }
-            runtime.report("Installed fingerprint toast hooks")
         }
 
         private fun applyToast(view: View) {

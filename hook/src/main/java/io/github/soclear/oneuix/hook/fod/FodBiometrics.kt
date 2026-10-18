@@ -86,7 +86,6 @@ object FodBiometrics {
                     runtime.safely("Apply FOD setting", { apply(window) })
                 }
             }
-            runtime.report("Installed Samsung keyguard FOD icon hooks")
         }
 
         private fun apply(window: Any) {
@@ -122,10 +121,8 @@ object FodBiometrics {
                 original.layoutParams?.height ?: 0, original.width, original.height)
             if (size == null) {
                 state.removeReplacement()
-                runtime.report("Waiting for native FOD icon layout")
                 return
             }
-            runtime.report("Native FOD icon size: ${size.width}x${size.height}")
             val replacement = state.replacement.get() ?: ImageView(original.context).apply {
                 isClickable = false
                 isFocusable = false
@@ -135,7 +132,6 @@ object FodBiometrics {
                     addRule(RelativeLayout.CENTER_IN_PARENT)
                 })
                 state.replacement = WeakReference(this)
-                runtime.report("Custom FOD PNG attached to keyguard")
             }
             state.allowOverflow()
             if (replacement.layoutParams.width != size.width || replacement.layoutParams.height != size.height) {
