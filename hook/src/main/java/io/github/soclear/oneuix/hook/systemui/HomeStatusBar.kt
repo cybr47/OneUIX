@@ -56,6 +56,8 @@ internal object HomeStatusBar {
         private var nativeIntensity = 0f
         private var nativeAreas = arrayListOf<Rect>()
         private var tintOverridden = false
+        private var lastAppliedIntensity: Float? = null
+        private var lastAppliedAreas: List<Rect>? = null
         private var samplers = emptyList<Any>()
         private val regions = arrayOf(Rect(), Rect())
         private val darkBackground = arrayOfNulls<Boolean>(2)
@@ -232,6 +234,9 @@ internal object HomeStatusBar {
             if (statusView === view) return
             statusView?.let { old -> destroySamplers(old) }
             statusView = view
+            // A newly bound status view must receive its first tint even if the value is unchanged.
+            lastAppliedIntensity = null
+            lastAppliedAreas = null
             view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {
                     statusView = v
@@ -352,6 +357,8 @@ internal object HomeStatusBar {
                     if (!tintActive && tintOverridden) {
                         cancelPendingRestore()
                         tintOverridden = false
+                        lastAppliedIntensity = null
+                        lastAppliedAreas = null
                     }
                     return@intercept result
                 }
@@ -368,12 +375,17 @@ internal object HomeStatusBar {
                 chain.proceed(args)
             }
             module.hook(clearAreas).intercept { chain ->
-                val result = chain.proceed()
-                if (chain.thisObject === dispatcher && !ownTintUpdate) {
-                    nativeAreas.clear()
-                    if (hasAdaptiveColours()) chain.thisObject.reflect["mTintAreas"] = homeAreas()
+                if (chain.thisObject !== dispatcher || ownTintUpdate) return@intercept chain.proceed()
+                nativeAreas.clear()
+                if (hasAdaptiveColours()) {
+                    // The native clear is a transient intermediate state before the next
+                    // app-provided tint. Running it while the override is active briefly
+                    // removes the custom tint regions and can blank the icons for a frame.
+                    // Keep our tint in place; nativeRegions remains empty for handoff.
+                    null
+                } else {
+                    chain.proceed()
                 }
-                result
             }
         }
 
@@ -391,6 +403,8 @@ internal object HomeStatusBar {
                 target.reflect.call("setIconsDarkArea", ArrayList(nativeAreas))
                 target.reflect.call("applyDarkIntensity", nativeIntensity)
                 tintOverridden = false
+                lastAppliedIntensity = null
+                lastAppliedAreas = null
             } finally { ownTintUpdate = false }
         }
 
@@ -417,11 +431,19 @@ internal object HomeStatusBar {
                 return
             }
             cancelPendingRestore()
+            val desiredIntensity = homeIntensity()
+            val desiredAreas = homeAreas()
+            if (!StatusBarAppearance.needsTintUpdate(
+                    tintOverridden, lastAppliedIntensity, desiredIntensity,
+                    lastAppliedAreas == desiredAreas
+                )) return
             ownTintUpdate = true
             try {
-                target.reflect.call("setIconsDarkArea", homeAreas())
-                target.reflect.call("applyDarkIntensity", homeIntensity())
+                target.reflect.call("setIconsDarkArea", desiredAreas)
+                target.reflect.call("applyDarkIntensity", desiredIntensity)
                 tintOverridden = true
+                lastAppliedIntensity = desiredIntensity
+                lastAppliedAreas = desiredAreas.map(::Rect)
             } finally { ownTintUpdate = false }
         }
 

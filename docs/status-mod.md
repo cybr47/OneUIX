@@ -23,6 +23,9 @@ reboot after enabling its System UI scope.
   when unlocked and the shade is closed. The clock option remains Home-only.
   If Samsung's overview is not exposed as a distinct task, the stock tint remains;
   confirm the Recents result on the device.
+- Repeated task/layout callbacks no longer force duplicate SystemUI tint dispatches
+  when brightness and tint areas have not changed. Native clear-area callbacks are
+  deferred while adaptive sampling is active, avoiding a transient icon redraw.
 - Native app tint callbacks take precedence as soon as Home/Recents is left.
   A single 300 ms fallback restores the prior native tint only if no callback arrives;
   there is no repeated polling. Lock, shade and screen-off restore immediately.

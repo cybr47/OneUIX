@@ -16,6 +16,17 @@ object StatusBarAppearance {
                 (className?.contains("recents", ignoreCase = true) == true ||
                     className?.contains("overview", ignoreCase = true) == true))
 
+    /**
+     * A task/layout refresh must not re-dispatch identical tint values to Compose.
+     * That can produce a momentary status icon redraw during app transitions.
+     */
+    fun needsTintUpdate(
+        alreadyOverridden: Boolean,
+        previousIntensity: Float?,
+        desiredIntensity: Float,
+        sameAreas: Boolean,
+    ): Boolean = !alreadyOverridden || previousIntensity != desiredIntensity || !sameAreas
+
     fun isHomeAppearanceActive(
         homeTask: Boolean,
         interactive: Boolean,
