@@ -225,7 +225,10 @@ internal object HomeStatusBar {
                     }
                 }
             })
-            view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> scheduleRefresh() }
+            view.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                // Clock-width frames relayout children; query tasks only when the bar's bounds change.
+                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) scheduleRefresh()
+            }
             scheduleRefresh()
         }
 
