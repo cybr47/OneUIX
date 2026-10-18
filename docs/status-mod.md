@@ -18,9 +18,16 @@ reboot after enabling its System UI scope.
   Its normal `LightBarControllerImpl` / `LightBarTransitionsController` path owns
   the icon colour and app-transition animation together. The hook no longer
   intercepts `DarkIconDispatcherImpl` or writes its final intensity/regions.
-- The clock fades over 250 ms using transition alpha, preserving its layout space
-  and Samsung's native alpha. Rapid navigation reverses from the current opacity.
-  System animation-disable settings are respected.
+- The clock fades and collapses its width over 250 ms. Notification icons use the
+  released space through Samsung's native layout, moving with a gentle fade dip.
+  On return to an app, the clock expands/fades in and the icons move back. Clock
+  drawing is clipped to its current space so it cannot paint over the moving icons.
+  Rapid navigation reverses from the current width/opacity; disabled animations snap
+  to the final layout. Native alpha/visibility and the outer status-bar padding remain intact.
+- Empty left-clock margins collapse with the clock. Shared activity chips keep their
+  native spacing, and centre/right QuickStar clocks do not fade the notification area.
+  Current clock text/font is measured before expansion, and original layout parameters,
+  clipping, accessibility and transition alpha are restored on detach. No background polling.
 - Task events, screen state and the status-bar state controller limit both options
   to unlocked, interactive One UI Home with the shade closed.
 - The app drawer retains Samsung's stock white icons, matching its white app labels.
@@ -83,7 +90,11 @@ another firmware may require updated names. It must still be tested on a phone.
    use Samsung's default colours when entered from Home, the drawer or an app.
    Repeat with Hide apps search bar enabled, and restart SystemUI in the drawer and Recents.
    Return Home, open apps repeatedly, open Recents, lock/unlock and pull the shade.
-   Check smooth clock fades, restoration and no shifting of adjacent icons.
+   With clock hiding enabled, check that the notification icons smoothly fill its
+   space on Home and move back as it reappears in apps. Try rapid Home/app switches,
+   no/many notifications, an active call/activity chip, rotation, font/clock-format
+   changes, QuickStar clock positions and RTL if used. Check that icons do not
+   overlap the clock, and that system animation-disable settings are respected.
 3. Try hide battery on/off with extra text on/off. With extra text enabled, test
    both nested options while plugged and unplugged, at low and full battery,
    in both light/dark icon modes. Also check an RTL language if used.

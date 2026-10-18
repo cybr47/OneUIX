@@ -1,6 +1,5 @@
 package io.github.soclear.oneuix.hook.systemui
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.KeyguardManager
@@ -13,7 +12,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.common.StatusBarAppearance
@@ -46,7 +44,7 @@ internal object HomeStatusBar {
         private val background by lazy {
             Executors.newSingleThreadExecutor { Thread(it, "OneUIX-status-sampling").apply { isDaemon = true } }
         }
-        private val clocks = WeakHashMap<View, ClockFade>()
+        private val clocks = WeakHashMap<View, HomeClockTransition>()
         private var stateController: Any? = null
         private var appearanceRepository: Any? = null
         private var sampledAppearanceFlow: Any? = null
@@ -66,13 +64,6 @@ internal object HomeStatusBar {
         private var sampling = false
         private val reported = mutableSetOf<String>()
         private val refresh = Runnable { safely("home state") { refreshHome() } }
-        private val transitionAlpha = View::class.java.getDeclaredMethod("setTransitionAlpha", Float::class.javaPrimitiveType)
-            .apply { isAccessible = true }
-        private val getTransitionAlpha = View::class.java.getDeclaredMethod("getTransitionAlpha")
-            .apply { isAccessible = true }
-
-        private data class ClockFade(val alpha: Float, val accessibility: Int,
-            var hidden: Boolean = false, var animator: ValueAnimator? = null)
 
         private fun safely(part: String, action: () -> Unit) {
             try { action() } catch (t: Throwable) {
@@ -192,7 +183,7 @@ internal object HomeStatusBar {
             tintActive = StatusBarAppearance.isHomeAppearanceActive(
                 homeTask && !isRecents, interactive, locked, state, expanded, dozing || dreaming
             )
-            clocks.keys.toList().forEach { setClockHidden(it, homeActive) }
+            clocks.values.toList().forEach { it.setHidden(homeActive) }
             if (options.adaptiveHomeStatusBar) {
                 safely("sampling") { updateSampling() }
                 safely("tint") { updateAppearance() }
@@ -201,41 +192,16 @@ internal object HomeStatusBar {
 
         private fun trackClock(view: View) {
             if (view.display?.displayId != 0 || clocks.containsKey(view)) return
-            clocks[view] = ClockFade((getTransitionAlpha.invoke(view) as Float), view.importantForAccessibility)
+            clocks[view] = HomeClockTransition(view)
             view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) = Unit
                 override fun onViewDetachedFromWindow(v: View) {
-                    clocks.remove(v)?.let {
-                        it.animator?.cancel()
-                        transitionAlpha.invoke(v, it.alpha)
-                        v.importantForAccessibility = it.accessibility
-                    }
+                    clocks.remove(v)?.release()
                     v.removeOnAttachStateChangeListener(this)
                 }
             })
-            setClockHidden(view, homeActive)
+            clocks[view]?.setHidden(homeActive)
             scheduleRefresh()
-        }
-
-        private fun setClockHidden(view: View, hidden: Boolean) {
-            val fade = clocks[view] ?: return
-            if (fade.hidden == hidden) return
-            fade.hidden = hidden
-            fade.animator?.cancel()
-            view.importantForAccessibility = if (hidden) View.IMPORTANT_FOR_ACCESSIBILITY_NO else fade.accessibility
-            val target = if (hidden) 0f else fade.alpha
-            if (!ValueAnimator.areAnimatorsEnabled() || !view.isShown) {
-                transitionAlpha.invoke(view, target)
-                fade.animator = null
-                return
-            }
-            // Transition alpha multiplies the native alpha, preserving Samsung's own animations.
-            fade.animator = ValueAnimator.ofFloat(getTransitionAlpha.invoke(view) as Float, target).apply {
-                duration = 250L
-                interpolator = AccelerateDecelerateInterpolator()
-                addUpdateListener { transitionAlpha.invoke(view, it.animatedValue as Float) }
-                start()
-            }
         }
 
         private fun trackStatusView(view: View) {
