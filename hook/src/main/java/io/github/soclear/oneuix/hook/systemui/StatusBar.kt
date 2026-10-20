@@ -313,6 +313,33 @@ object StatusBar {
         return null
     }
 
+    private fun isLockscreenConnectivitySlot(slot: String): Boolean {
+        val normalized = slot.lowercase()
+        return listOf(
+            "bluetooth", "wifi", "wlan", "mobile", "cellular", "signal", "airplane",
+            "ethernet", "hotspot", "tethering", "vpn", "volte", "vonr", "vowifi",
+            "hd_voice", "voice_over_lte", "5g", "4g", "3g", "lte", "roaming",
+            "no_sim", "sim_card", "data_saver"
+        ).any(normalized::contains)
+    }
+
+    private fun hideLockscreenConnectivityIconSlots(root: View) {
+        // StatusBarIconView exposes its Samsung/SystemUI slot through getSlot(). Filter
+        // those individually to keep non-connectivity indicators (for example alarms).
+        val slot = runCatching {
+            root.javaClass.getMethod("getSlot").invoke(root) as? String
+        }.getOrNull()
+        if (slot != null) {
+            if (isLockscreenConnectivitySlot(slot)) root.visibility = View.GONE
+            return
+        }
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                hideLockscreenConnectivityIconSlots(root.getChildAt(index))
+            }
+        }
+    }
+
     context(xposedModule: XposedModule)
     fun customizeLockscreenStatusBar(
         hideCarrierName: Boolean,
@@ -350,7 +377,7 @@ object StatusBar {
             if (hideConnectivityIcons) {
                 findLockscreenStatusBarDescendant(
                     view, "com.android.systemui.statusbar.phone.StatusIconContainer"
-                )?.visibility = View.GONE
+                )?.let(::hideLockscreenConnectivityIconSlots)
             }
 
             if (hideBatteryIcon) {
