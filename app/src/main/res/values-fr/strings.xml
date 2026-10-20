@@ -87,7 +87,10 @@
     <string name="autoExpandNotifications_title">Développer automatiquement les notifications</string>
     <string name="hideOngoingActivityMedia_title">Masquer l\'activité en cours des applications multimédias</string>
     <string name="hideOngoingActivityMedia_summary">Masquer la pastille d\'activité en cours dans la barre d\'état et la carte de notification multimédia lors de la lecture de musique en arrière-plan</string>
-    <string name="hideOngoingActivityMedia_packages_hint">Noms de packages, séparés par des virgules</string>
+<string name="app_picker_title">Sélectionner des applications</string>
+<string name="app_picker_search_hint">Rechercher un nom ou un package</string>
+<string name="app_picker_selected_count">Applications sélectionnées : %1$d</string>
+<string name="app_picker_empty">Aucune application correspondante</string>
     <string name="customPowerMenu_title">Personnaliser les actions du menu d\'alimentation</string>
     <string name="powerMenuActionVisible_summary">Visible, position %1$d</string>
     <string name="powerMenuActionHidden_summary">Masqué</string>
@@ -179,6 +182,8 @@
     <string name="disableWritingToolkitGlobally_title">Désactiver globalement les outils d\'écriture</string>
     <string name="disableWritingToolkitGlobally_summary">Supprime les outils d\'écriture Samsung des menus de sélection de texte de toutes les applications via le framework système</string>
     <string name="disableFlagSecure_title">Désactiver FLAG_SECURE</string>
+<string name="hideScreenshotDetection_title">Masquer les captures aux applications</string>
+<string name="hideScreenshotDetection_summary">Ajoutez les applications sélectionnées à la portée du module et redémarrez-les. Bloque les rappels de capture et les changements reconnus comme captures. Les captures restent visibles et les autres notifications de photos sont conservées</string>
     <string name="disableFlagSecure_summary">Autoriser les captures et enregistrements d\'écran dans les fenêtres sécurisées</string>
     <string name="backup_config">Sauvegarder la config</string>
     <string name="restore_config">Restaurer la config</string>
