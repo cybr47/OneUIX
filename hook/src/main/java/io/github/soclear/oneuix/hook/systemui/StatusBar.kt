@@ -313,6 +313,21 @@ object StatusBar {
         return null
     }
 
+    private fun findLockscreenStatusBarViews(
+        root: View,
+        predicate: (View) -> Boolean,
+    ): List<View> {
+        val found = mutableListOf<View>()
+        fun visit(view: View) {
+            if (predicate(view)) found += view
+            if (view is ViewGroup) {
+                for (index in 0 until view.childCount) visit(view.getChildAt(index))
+            }
+        }
+        visit(root)
+        return found
+    }
+
     private fun isLockscreenConnectivitySlot(slot: String): Boolean {
         val normalized = slot.lowercase()
         return listOf(
@@ -366,12 +381,21 @@ object StatusBar {
             }
 
             if (hideNotificationIcons) {
+                // Samsung builds do not always expose NotificationIconContainer as a
+                // descendant of KeyguardStatusBarView. Hide actual status-bar icon views
+                // in this lockscreen view tree, and collapse the containing notification
+                // area when the expected container exists.
                 val notificationIcons = findLockscreenStatusBarDescendant(
                     view, "com.android.systemui.statusbar.phone.NotificationIconContainer"
                 )
-                // This container is inside the notification-area include, whose width
-                // would otherwise remain allocated after hiding only its child.
-                (notificationIcons?.parent as? View)?.visibility = View.GONE
+                if (notificationIcons != null) {
+                    (notificationIcons.parent as? View)?.visibility = View.GONE
+                } else {
+                    findLockscreenStatusBarViews(view) {
+                        it.javaClass.name.endsWith(".StatusBarIconView") ||
+                            it.javaClass.name.endsWith(".NotificationIconView")
+                    }.forEach { it.visibility = View.GONE }
+                }
             }
 
             if (hideConnectivityIcons) {
@@ -381,9 +405,14 @@ object StatusBar {
             }
 
             if (hideBatteryIcon) {
-                findLockscreenStatusBarDescendant(
-                    view, "com.android.systemui.battery.BatteryMeterView"
-                )?.visibility = View.GONE
+                // One UI versions may wrap or replace the legacy battery view with
+                // SamsungBatteryComposeView; match both exact and wrapped implementations.
+                findLockscreenStatusBarViews(view) {
+                    val name = it.javaClass.name
+                    name == "com.android.systemui.battery.BatteryMeterView" ||
+                        name == "com.android.systemui.battery.view.SamsungBatteryComposeView" ||
+                        name.endsWith(".BatteryMeterView")
+                }.forEach { it.visibility = View.GONE }
             }
         }
 
