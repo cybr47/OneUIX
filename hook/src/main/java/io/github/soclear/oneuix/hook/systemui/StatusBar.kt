@@ -301,6 +301,90 @@ object StatusBar {
         }
     }
 
+    private fun findLockscreenStatusBarDescendant(root: View, className: String): View? {
+        if (root.javaClass.name == className) return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                findLockscreenStatusBarDescendant(root.getChildAt(index), className)?.let {
+                    return it
+                }
+            }
+        }
+        return null
+    }
+
+    context(xposedModule: XposedModule)
+    fun customizeLockscreenStatusBar(
+        hideCarrierName: Boolean,
+        hideNotificationIcons: Boolean,
+        hideConnectivityIcons: Boolean,
+        hideBatteryIcon: Boolean,
+    ) = afterAttachTry(
+        hideCarrierName || hideNotificationIcons || hideConnectivityIcons || hideBatteryIcon
+    ) {
+        val viewClass = classLoader.loadClass(
+            "com.android.systemui.statusbar.phone.KeyguardStatusBarView"
+        )
+
+        fun applyOptions(view: View) {
+            if (hideCarrierName) {
+                val carrier = runCatching {
+                    view.reflect["mCarrierLabel"] as? View
+                }.getOrNull() ?: findLockscreenStatusBarDescendant(
+                    view, "com.android.keyguard.CarrierText"
+                )
+                // The carrier label sits in its own wrapper. Hide the wrapper as well so
+                // notification icons can use the space immediately to its left.
+                (carrier?.parent as? View)?.visibility = View.GONE
+            }
+
+            if (hideNotificationIcons) {
+                val notificationIcons = findLockscreenStatusBarDescendant(
+                    view, "com.android.systemui.statusbar.phone.NotificationIconContainer"
+                )
+                // This container is inside the notification-area include, whose width
+                // would otherwise remain allocated after hiding only its child.
+                (notificationIcons?.parent as? View)?.visibility = View.GONE
+            }
+
+            if (hideConnectivityIcons) {
+                findLockscreenStatusBarDescendant(
+                    view, "com.android.systemui.statusbar.phone.StatusIconContainer"
+                )?.visibility = View.GONE
+            }
+
+            if (hideBatteryIcon) {
+                findLockscreenStatusBarDescendant(
+                    view, "com.android.systemui.battery.BatteryMeterView"
+                )?.visibility = View.GONE
+            }
+        }
+
+        val methods = listOf(
+            viewClass.getDeclaredMethod("onFinishInflate"),
+            viewClass.getDeclaredMethod("updateVisibilities"),
+            viewClass.getDeclaredMethod(
+                "onLayout",
+                Boolean::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            )
+        )
+        methods.distinct().forEach { method ->
+            xposedModule.hook(method).intercept { chain ->
+                val result = chain.proceed()
+                try {
+                    (chain.thisObject as? View)?.let(::applyOptions)
+                } catch (t: Throwable) {
+                    xlog(t)
+                }
+                result
+            }
+        }
+    }
+
     context(xposedModule: XposedModule)
     fun hideLockscreenStatusBar() = afterAttachTry {
         val viewClass = classLoader.loadClass(

@@ -76,6 +76,10 @@ data class Preference(
             val setCustomCarrierName: Boolean = false,
             val customCarrierName: String = "",
             val hideLockscreenStatusBar: Boolean = false,
+            val hideLockscreenCarrierName: Boolean = false,
+            val hideLockscreenNotificationIcons: Boolean = false,
+            val hideLockscreenConnectivityIcons: Boolean = false,
+            val hideLockscreenBatteryIcon: Boolean = false,
             val restoreBluetoothStatusBarIcon: Boolean = false,
         )
 
