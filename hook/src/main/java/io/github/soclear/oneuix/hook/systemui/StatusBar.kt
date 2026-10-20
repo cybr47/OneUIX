@@ -320,7 +320,7 @@ object StatusBar {
             "ethernet", "hotspot", "tethering", "vpn", "volte", "vonr", "vowifi",
             "hd_voice", "voice_over_lte", "5g", "4g", "3g", "lte", "roaming",
             "no_sim", "sim_card", "data_saver"
-        ).any(normalized::contains)
+        ).any { token -> normalized.contains(token) }
     }
 
     private fun hideLockscreenConnectivityIconSlots(root: View) {
