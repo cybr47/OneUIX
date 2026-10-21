@@ -539,6 +539,43 @@ object StatusBar {
             }
         }
 
+        // On this One UI 9 build, the notification icon area can be inflated outside the
+        // KeyguardStatusBarView/HomeStatusBarView subtree. The APK's notification_icon_area.xml
+        // identifies its dedicated NotificationIconContainer by notification_icon_container.
+        // Track that exact container's parent as well, so the toggle works across either layout
+        // without hiding notification icons in the shade/shelf or unrelated icon views.
+        if (hideNotificationIcons) runCatching {
+            val notificationContainerClass = classLoader.loadClass(
+                "com.android.systemui.statusbar.phone.NotificationIconContainer"
+            )
+            val notificationContainerId = resources.getIdentifier(
+                "notification_icon_container", "id", Package.SYSTEMUI
+            )
+            val notificationParts = LockscreenStatusBarParts(
+                hidden = setOf(StatusBarAppearance.LockscreenPart.NOTIFICATION_ICONS),
+                onlyWhileLocked = true,
+                isConnectivitySlot = { isLockscreenConnectivitySlot(it) },
+                report = { xlog(it) },
+                dump = { xlog(it, priority = Log.INFO) },
+            )
+            val onLayout = notificationContainerClass.getDeclaredMethod(
+                "onLayout",
+                Boolean::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType,
+                Int::class.javaPrimitiveType
+            )
+            xposedModule.hook(onLayout).intercept { chain ->
+                val result = chain.proceed()
+                val container = chain.thisObject as? View
+                if (notificationContainerId != 0 && container?.id == notificationContainerId) {
+                    (container.parent as? View)?.let(notificationParts::track)
+                }
+                result
+            }
+        }.onFailure { xlog(it) }
+
         // One UI 9 can also draw the lock screen's carrier, notification icons and battery in the
         // status bar view that Home uses. Hide the same parts there, but only while the keyguard is
         // locked: they are restored as soon as it is not, so Home and apps are unaffected.
