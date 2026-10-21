@@ -73,14 +73,14 @@ internal class HomeSearchBarStyle(
         override fun onPreDraw(): Boolean {
             val bar = view.get() ?: return true
             try {
-                val scan = Scan()
-                scan(bar, bar, scan, 0)
-                if (!scan.styled && scan.unknown == null && bar.background == null && bar.height > 0) {
+                val found = Scan()
+                scanView(bar, bar, found, 0)
+                if (!found.styled && found.unknown == null && bar.background == null && bar.height > 0) {
                     installFallback(bar)
                 }
                 if (BuildConfig.DEBUG && !dumped && bar.width > 0 && bar.height > 0) {
                     dumped = true
-                    dump(describe(bar, scan))
+                    dump(describeBar(bar, found))
                 }
             } catch (t: Throwable) {
                 if (!reported) {
@@ -98,16 +98,16 @@ internal class HomeSearchBarStyle(
     }
 
     /** The bar's own background, then any large child that carries the fill instead. */
-    private fun scan(view: View, bar: View, scan: Scan, depth: Int) {
+    private fun scanView(view: View, bar: View, found: Scan, depth: Int) {
         view.background?.let {
-            if (styleDrawable(it, view)) scan.styled = true else scan.unknown = it.javaClass.name
+            if (styleDrawable(it, view)) found.styled = true else found.unknown = it.javaClass.name
         }
         if (view !is ViewGroup || depth >= 3) return
         for (index in 0 until view.childCount) {
             val child = view.getChildAt(index)
             // Small children are the logo, microphone and Lens buttons: leave them alone.
             if (child.width >= bar.width * 0.6f && child.height >= bar.height * 0.6f) {
-                scan(child, bar, scan, depth + 1)
+                scanView(child, bar, found, depth + 1)
             }
         }
     }
@@ -168,11 +168,11 @@ internal class HomeSearchBarStyle(
     }
 
     /** Debug builds only: what the bar is made of, so a mismatch with a launcher build is visible. */
-    private fun describe(bar: View, scan: Scan): String = buildString {
+    private fun describeBar(bar: View, found: Scan): String = buildString {
         append("Home search bar ").append(bar.javaClass.name).append(" (super ")
             .append(bar.javaClass.superclass?.name).append(") ")
             .append(bar.width).append('x').append(bar.height)
-            .append(" styled=").append(scan.styled).append(" unknownBackground=").append(scan.unknown)
+            .append(" styled=").append(found.styled).append(" unknownBackground=").append(found.unknown)
         var lines = 0
         fun walk(view: View, depth: Int) {
             if (lines++ >= 80) return
@@ -181,13 +181,13 @@ internal class HomeSearchBarStyle(
             }.getOrDefault("?")
             append('\n').append("  ".repeat(depth)).append(name).append(" : ").append(view.javaClass.name)
                 .append(' ').append(view.width).append('x').append(view.height)
-                .append(" bg=").append(view.background?.let(::describe) ?: "none")
+                .append(" bg=").append(view.background?.let { describeDrawable(it) } ?: "none")
             if (view is ViewGroup) for (i in 0 until view.childCount) walk(view.getChildAt(i), depth + 1)
         }
         walk(bar, 1)
     }
 
-    private fun describe(drawable: Drawable): String = buildString {
+    private fun describeDrawable(drawable: Drawable): String = buildString {
         append(drawable.javaClass.name)
         if (drawable is GradientDrawable) {
             append(" color=").append(drawable.color?.defaultColor?.let { "#%08x".format(it) } ?: "none")

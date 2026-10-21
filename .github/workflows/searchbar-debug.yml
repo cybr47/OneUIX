@@ -24,7 +24,12 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug 2>&1 | tee build.log || {
+            grep -E '^e: ' build.log | head -20 | while read -r line; do echo "::error::$line"; done
+            exit 1
+          }
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
