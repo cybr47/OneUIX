@@ -156,8 +156,6 @@ data class Preference(
 
     @Serializable
     data class Other(
-        val hideScreenshotDetection: Boolean = false,
-        val hideScreenshotDetectionPackages: Set<String> = emptySet(),
         val unlockBixbyOfflineProcessing: Boolean = false,
         val supportBixbyCustomWakeup: Boolean = false,
         val bypassBixbyWakeWordRestrictions: Boolean = false,
