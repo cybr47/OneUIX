@@ -91,9 +91,7 @@ internal class LockscreenStatusBarParts(
                 var views = targets.mapNotNull { it.get() }
                 val now = SystemClock.uptimeMillis()
                 // Icons are added at any time, so search again regularly, not only when empty.
-                if (views.size != targets.size || views.isEmpty() || now - foundAt >= 300 ||
-                    views.any { it.parent == null }
-                ) {
+                if (views.size != targets.size || now - foundAt >= 300 || views.any { it.parent == null }) {
                     views = find(bar)
                     targets = views.map(::WeakReference)
                     foundAt = now
@@ -136,6 +134,38 @@ internal class LockscreenStatusBarParts(
                 }
             }
             (bar as? ViewGroup)?.let(::walk)
+            if (LockscreenPart.NOTIFICATION_ICONS in hidden &&
+                found.none { StatusBarAppearance.lockscreenPart(entryName(it), it.javaClass.name) ==
+                    LockscreenPart.NOTIFICATION_ICONS }
+            ) {
+                found += notificationIconsInWindow(bar)
+            }
+            return found
+        }
+
+        /**
+         * The notification icon container is not always inside the bar's own subtree. Look in the
+         * whole window, but only at views that sit in the status bar's own band at the top, so the
+         * lower icon rows (shelf, AOD) are not touched.
+         */
+        private fun notificationIconsInWindow(bar: View): List<View> {
+            val root = bar.rootView as? ViewGroup ?: return emptyList()
+            val at = IntArray(2)
+            bar.getLocationInWindow(at)
+            val bandBottom = at[1] + bar.height
+            if (bar.height <= 0) return emptyList()
+            val found = mutableListOf<View>()
+            fun walk(group: ViewGroup) {
+                for (index in 0 until group.childCount) {
+                    val child = group.getChildAt(index)
+                    val part = StatusBarAppearance.lockscreenPart(entryName(child), child.javaClass.name)
+                    if (part == LockscreenPart.NOTIFICATION_ICONS) {
+                        child.getLocationInWindow(at)
+                        if (child.isShown && at[1] < bandBottom) found += child
+                    } else if (child is ViewGroup) walk(child)
+                }
+            }
+            walk(root)
             return found
         }
 
@@ -172,5 +202,19 @@ internal class LockscreenStatusBarParts(
             if (view is ViewGroup) for (i in 0 until view.childCount) walk(view.getChildAt(i), depth + 1)
         }
         walk(root, 0)
+        append("\nName matches anywhere in this window (y = top in window):")
+        var matches = 0
+        val at = IntArray(2)
+        fun scan(view: View) {
+            if (matches >= 30) return
+            if (view !== root && StatusBarAppearance.lockscreenPart(entryName(view), view.javaClass.name) != null) {
+                matches++
+                view.getLocationInWindow(at)
+                append('\n').append("  ").append(entryName(view) ?: "-").append(" : ")
+                    .append(view.javaClass.name).append(" y=").append(at[1]).append(" shown=").append(view.isShown)
+            }
+            if (view is ViewGroup) for (i in 0 until view.childCount) scan(view.getChildAt(i))
+        }
+        scan(root.rootView)
     }
 }
