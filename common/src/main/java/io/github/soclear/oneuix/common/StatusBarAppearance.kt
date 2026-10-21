@@ -25,7 +25,7 @@ object StatusBarAppearance {
         !recentsTask && nativeLauncherAppearance == false
 
     /** Lock screen status bar parts that are located by view id or class name. */
-    enum class LockscreenPart { NOTIFICATION_ICONS, BATTERY }
+    enum class LockscreenPart { CARRIER, NOTIFICATION_ICONS, CONNECTIVITY_ICONS, BATTERY }
 
     /**
      * Classify a view of the lock screen status bar from its resource entry name and class.
@@ -37,8 +37,10 @@ object StatusBarAppearance {
         val type = className.substringAfterLast('.').lowercase()
         fun has(vararg keys: String) = keys.any { id.contains(it) || type.contains(it) }
         return when {
+            has("carrier", "operator") -> LockscreenPart.CARRIER
             has("notification_icon", "notificationicon") -> LockscreenPart.NOTIFICATION_ICONS
             has("battery") -> LockscreenPart.BATTERY
+            has("statusicon", "status_icon") -> LockscreenPart.CONNECTIVITY_ICONS
             else -> null
         }
     }

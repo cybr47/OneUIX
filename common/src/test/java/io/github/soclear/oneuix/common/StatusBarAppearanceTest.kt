@@ -73,8 +73,12 @@ class StatusBarAppearanceTest {
         assertEquals(p.BATTERY, part(null, "com.android.systemui.battery.BatteryMeterView"))
         // Containers that hold several parts are searched, never hidden as a whole.
         assertNull(part("system_icons", "android.widget.LinearLayout"))
-        assertNull(part("statusIcons", "com.android.systemui.statusbar.phone.StatusIconContainer"))
+        assertNull(part("left_clock_container", "android.widget.LinearLayout"))
         assertNull(part(null, "android.view.View"))
+        // Carrier / operator name and the connectivity icon container.
+        assertEquals(p.CARRIER, part("operator_name", "android.widget.TextView"))
+        assertEquals(p.CARRIER, part(null, "com.android.keyguard.CarrierText"))
+        assertEquals(p.CONNECTIVITY_ICONS, part("statusIcons", "com.android.systemui.statusbar.phone.StatusIconContainer"))
     }
 
     @Test fun clockHidesOnHomeAndRecentsButNotInTheAppDrawer() {

@@ -485,17 +485,53 @@ object StatusBar {
                 Int::class.javaPrimitiveType
             )
         )
+        val hidden = buildSet {
+            if (hideCarrierName) add(StatusBarAppearance.LockscreenPart.CARRIER)
+            if (hideNotificationIcons) add(StatusBarAppearance.LockscreenPart.NOTIFICATION_ICONS)
+            if (hideConnectivityIcons) add(StatusBarAppearance.LockscreenPart.CONNECTIVITY_ICONS)
+            if (hideBatteryIcon) add(StatusBarAppearance.LockscreenPart.BATTERY)
+        }
+        fun parts(onlyWhileLocked: Boolean) = LockscreenStatusBarParts(
+            hidden = hidden,
+            onlyWhileLocked = onlyWhileLocked,
+            isConnectivitySlot = { isLockscreenConnectivitySlot(it) },
+            report = { xlog(it) },
+            dump = { xlog(it, priority = Log.INFO) },
+        )
+        // KeyguardStatusBarView exists only on the lock screen. Native code can re-show a part
+        // after layout, so the choice is also enforced before each draw.
+        val keyguardParts = parts(onlyWhileLocked = false)
         methods.distinct().forEach { method ->
             xposedModule.hook(method).intercept { chain ->
                 val result = chain.proceed()
                 try {
-                    (chain.thisObject as? View)?.let(::applyOptions)
+                    (chain.thisObject as? View)?.let {
+                        applyOptions(it)
+                        keyguardParts.track(it)
+                    }
                 } catch (t: Throwable) {
                     xlog(t)
                 }
                 result
             }
         }
+
+        // One UI 9 can also draw the lock screen's carrier, notification icons and battery in the
+        // status bar view that Home uses. Hide the same parts there, but only while the keyguard is
+        // locked: they are restored as soon as it is not, so Home and apps are unaffected.
+        runCatching {
+            val binder = classLoader.loadClass(
+                "com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinderImpl"
+            )
+            val homeParts = parts(onlyWhileLocked = true)
+            xposedModule.hook(binder.declaredMethods.single { it.name == "bind" }).intercept { chain ->
+                val result = chain.proceed()
+                (chain.args.firstOrNull() as? View)
+                    ?.takeIf { it.display?.displayId == 0 }
+                    ?.let(homeParts::track)
+                result
+            }
+        }.onFailure { xlog(it) }
     }
 
     context(xposedModule: XposedModule)
