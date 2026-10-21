@@ -145,6 +145,37 @@ internal class LockscreenStatusBarParts(
             ) {
                 found += notificationIconsInWindow(bar)
             }
+            if (LockscreenPart.BATTERY in hidden &&
+                found.none { StatusBarAppearance.lockscreenPart(entryName(it), it.javaClass.name) ==
+                    LockscreenPart.BATTERY }
+            ) {
+                found += batteryHostInWindow(bar)
+            }
+            return found.distinct()
+        }
+
+        /**
+         * One UI 9's Compose battery host can be a sibling of the bound Home status-bar view.
+         * Its dedicated resource ID is more reliable than guessing from the generic ComposeView
+         * class name. Search only this window's view tree, and never match arbitrary Compose views.
+         */
+        private fun batteryHostInWindow(bar: View): List<View> {
+            val id = bar.resources.getIdentifier(
+                "battery_meter_composable_view", "id", bar.context.packageName
+            )
+            if (id == 0) return emptyList()
+            val root = bar.rootView
+            val found = mutableListOf<View>()
+            fun walk(view: View) {
+                if (view.id == id) {
+                    found += view
+                    return
+                }
+                if (view is ViewGroup) {
+                    for (index in 0 until view.childCount) walk(view.getChildAt(index))
+                }
+            }
+            walk(root)
             return found
         }
 
