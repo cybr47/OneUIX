@@ -350,7 +350,30 @@ object StatusBar {
             }
         }
         visit(root)
-        return found
+
+        // One UI 9's battery is hosted by a Compose-icon view that can be a sibling of the
+        // view returned by HomeStatusBarViewBinderImpl.bind(), rather than a descendant of it.
+        // Resolve Samsung's dedicated battery host ID in the current SystemUI resources and
+        // search the same window before giving up. This is deliberately battery-only: searching
+        // the whole window for generic Compose views could hide unrelated status-bar icons.
+        if (part == StatusBarAppearance.LockscreenPart.BATTERY && found.isEmpty()) {
+            val batteryHostId = root.resources.getIdentifier(
+                "battery_meter_composable_view", "id", Package.SYSTEMUI
+            )
+            if (batteryHostId != 0) {
+                fun visitWindow(view: View) {
+                    if (view.id == batteryHostId) {
+                        found += view
+                        return
+                    }
+                    if (view is ViewGroup) {
+                        for (index in 0 until view.childCount) visitWindow(view.getChildAt(index))
+                    }
+                }
+                visitWindow(root.rootView)
+            }
+        }
+        return found.distinct()
     }
 
     /** Debug builds only: the bar's views plus matches elsewhere in its window. */
