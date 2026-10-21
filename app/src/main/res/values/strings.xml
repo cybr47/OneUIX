@@ -162,6 +162,10 @@
     <string name="setCustomCarrierName_title">Set custom carrier name</string>
     <string name="hideLockscreenStatusBar_title">Hide status bar on lock screen</string>
     <string name="hideAppsSearchBar_title">Hide search bar on app screen</string>
+    <string name="searchBarColors_title">Search bar colors</string>
+    <string name="searchBarColors_summary">Adjust the home-screen Google search bar background</string>
+    <string name="searchBarColor_title">Background color (black to white)</string>
+    <string name="searchBarTransparency_title">Background transparency</string>
     <string name="removeShortcutBadge_title">Remove bottom-right shortcut badge</string>
     <string name="removeShortcutBadge_summary">Remove the original app badge from the bottom-right corner of home screen shortcuts</string>
     <string name="watchPairing_connectionMode_title">Watch connection mode</string>
