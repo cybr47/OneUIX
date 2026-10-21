@@ -437,24 +437,53 @@ object Launcher {
             report = { xlog(it) },
             dump = { xlog(it, priority = Log.INFO) },
         )
-        // HomeSearchBar is the Home screen's bar; WidgetSearchBar is the related widget integration.
+        // The Honeyspace search bar classes report their instances. They are not guaranteed to be
+        // Views, so the object and the Views it holds are both accepted.
         listOf(
             "com.honeyspace.ui.common.qsb.HomeSearchBar",
             "com.honeyspace.ui.common.qsb.WidgetSearchBar",
         ).forEach { name ->
             try {
                 val type = param.classLoader.loadClass(name)
-                if (!View::class.java.isAssignableFrom(type)) return@forEach
+                val methods = type.declaredMethods.filter {
+                    it.name == "setBackgroundRadius" || it.name == "applyCapturedBlur"
+                }
+                style.note("${type.simpleName}: view=${View::class.java.isAssignableFrom(type)} " +
+                    "ctors=${type.declaredConstructors.size} methods=${methods.map { it.name }.distinct()}")
                 type.declaredConstructors.forEach { constructor ->
                     xposedModule.hook(constructor).intercept { chain ->
                         val result = chain.proceed()
-                        (chain.thisObject as? View)?.let(style::track)
+                        style.trackObject(chain.thisObject)
+                        result
+                    }
+                }
+                methods.forEach { method ->
+                    xposedModule.hook(method).intercept { chain ->
+                        val result = chain.proceed()
+                        style.trackObject(chain.thisObject)
+                        chain.args.forEach { if (it is View) style.track(it) }
                         result
                     }
                 }
             } catch (t: Throwable) {
+                style.note("$name: not usable (${t.javaClass.simpleName})")
                 xlog(t)
             }
+        }
+        // Independent of those classes: search the launcher's view tree when it resumes.
+        try {
+            val launcher = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
+            xposedModule.hook(launcher.getDeclaredMethod("onResume")).intercept { chain ->
+                val result = chain.proceed()
+                (chain.thisObject as? Activity)?.window?.decorView?.let { root ->
+                    root.post { style.discover(root) }
+                    root.postDelayed({ style.discover(root) }, 1500)
+                }
+                result
+            }
+        } catch (t: Throwable) {
+            style.note("Launcher.onResume: not usable (${t.javaClass.simpleName})")
+            xlog(t)
         }
     }
 

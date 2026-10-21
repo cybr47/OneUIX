@@ -1,5 +1,6 @@
 package io.github.soclear.oneuix.hook
 
+import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.DrawableWrapper
@@ -8,6 +9,7 @@ import android.graphics.drawable.LayerDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.Toast
 import io.github.soclear.oneuix.common.BuildConfig
 import java.lang.ref.WeakReference
 import java.util.Collections
@@ -16,16 +18,18 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * Recolours the fill of the launcher's home search bar and keeps its outline.
+ * Recolours the home screen's Google search bar: fill colour, transparency and a kept outline.
  *
- * The bar's own background drawable is edited in place, never replaced, so launcher code that
- * expects Samsung's drawable keeps working, and the bar's children (Google logo, microphone,
- * Lens) are never touched: no view alpha is set. Only the fill colour changes, which also carries
- * the transparency, so an existing stroke stays. When the bar is fully transparent a thin outline
- * is made sure to exist.
+ * The bar is found in two independent ways, because the launcher's class layout is not verified:
+ * the Honeyspace classes report their instances, and the launcher's view tree is searched on
+ * resume for a wide view whose id or class looks like a search bar. Either way only the bar's
+ * background is edited (a drawable fill, never view alpha), so the Google logo, microphone and
+ * Lens icon are untouched.
  *
- * The launcher re-applies its own colours (wallpaper, theme, blur changes), so the style is
- * checked before each draw and written only when it differs, which keeps this cheap.
+ * A native [GradientDrawable] is edited in place. Anything else (no background, a bitmap, a blur
+ * drawable) is replaced by a plain [GradientDrawable], which is also safe for launcher code that
+ * casts the background. The style is checked before each draw because the launcher re-applies
+ * its own colours, and written only when it differs.
  */
 internal class HomeSearchBarStyle(
     colorLevel: Float,
@@ -45,16 +49,76 @@ internal class HomeSearchBarStyle(
     // Identity only: a value referring to the view or drawable would keep it alive forever.
     private val tracked = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val prepared = Collections.newSetFromMap(WeakHashMap<Drawable, Boolean>())
+    private val notes = mutableListOf<String>()
     private var reported = false
+    private var toasted = false
 
-    fun track(bar: View) {
-        if (tracked.add(bar)) Bar(bar)
+    /** Facts about the hook phase, shown with the debug summary. */
+    fun note(text: String) {
+        if (BuildConfig.DEBUG) notes += text
+    }
+
+    fun track(view: View) {
+        if (tracked.add(view)) Bar(view)
+    }
+
+    /** The launcher's search bar class is not necessarily a View: use it or the Views it holds. */
+    fun trackObject(target: Any?) {
+        when (target) {
+            null -> Unit
+            is View -> track(target)
+            else -> {
+                var type: Class<*>? = target.javaClass
+                while (type != null && type != Any::class.java) {
+                    type.declaredFields.forEach { field ->
+                        if (View::class.java.isAssignableFrom(field.type)) {
+                            runCatching {
+                                field.isAccessible = true
+                                (field.get(target) as? View)?.let(::track)
+                            }
+                        }
+                    }
+                    type = type.superclass
+                }
+            }
+        }
+    }
+
+    /** Search the launcher's view tree for the Home search bar. Called after the launcher resumes. */
+    fun discover(root: View) {
+        try {
+            val metrics = root.resources.displayMetrics
+            val found = mutableListOf<View>()
+            fun walk(view: View) {
+                val type = view.javaClass.simpleName.lowercase()
+                val label = (entryName(view).orEmpty() + " " + type).lowercase()
+                val looksLikeSearch = "searchbar" in label || "search_bar" in label || "qsb" in label
+                // The app drawer has its own bar (AppsSearchBar) that this option does not touch.
+                if (looksLikeSearch && "apps" !in type && view.width >= metrics.widthPixels * 0.4f) {
+                    found += view
+                    return
+                }
+                if (view is ViewGroup) for (index in 0 until view.childCount) walk(view.getChildAt(index))
+            }
+            walk(root)
+            found.forEach(::track)
+            if (BuildConfig.DEBUG && !toasted && (found.isNotEmpty() || root.width > 0)) {
+                toasted = true
+                val summary = summary(found)
+                dump(summary)
+                Toast.makeText(root.context, summary, Toast.LENGTH_LONG).show()
+            }
+        } catch (t: Throwable) {
+            if (!reported) {
+                reported = true
+                report(t)
+            }
+        }
     }
 
     private inner class Bar(view: View) : ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
         private val view = WeakReference(view)
         private var observer: ViewTreeObserver? = null
-        private var dumped = false
 
         init {
             view.addOnAttachStateChangeListener(this)
@@ -73,15 +137,11 @@ internal class HomeSearchBarStyle(
         override fun onPreDraw(): Boolean {
             val bar = view.get() ?: return true
             try {
+                // Small views reported by the launcher (icons) are not the bar.
+                if (bar.width < bar.resources.displayMetrics.widthPixels * 0.4f || bar.height <= 0) return true
                 val found = Scan()
                 scanView(bar, bar, found, 0)
-                if (!found.styled && found.unknown == null && bar.background == null && bar.height > 0) {
-                    installFallback(bar)
-                }
-                if (BuildConfig.DEBUG && !dumped && bar.width > 0 && bar.height > 0) {
-                    dumped = true
-                    dump(describeBar(bar, found))
-                }
+                if (!found.styled) installReplacement(bar)
             } catch (t: Throwable) {
                 if (!reported) {
                     reported = true
@@ -94,14 +154,11 @@ internal class HomeSearchBarStyle(
 
     private class Scan {
         var styled = false
-        var unknown: String? = null
     }
 
     /** The bar's own background, then any large child that carries the fill instead. */
     private fun scanView(view: View, bar: View, found: Scan, depth: Int) {
-        view.background?.let {
-            if (styleDrawable(it, view)) found.styled = true else found.unknown = it.javaClass.name
-        }
+        view.background?.let { if (styleDrawable(it, view)) found.styled = true }
         if (view !is ViewGroup || depth >= 3) return
         for (index in 0 until view.childCount) {
             val child = view.getChildAt(index)
@@ -143,11 +200,12 @@ internal class HomeSearchBarStyle(
         if (drawable.color?.defaultColor != fill) drawable.setColor(fill)
     }
 
-    private fun installFallback(bar: View) {
+    /** Used when the bar has no drawable of a kind that can be recoloured (none, bitmap, blur). */
+    private fun installReplacement(bar: View) {
         val drawable = GradientDrawable().apply {
             setColor(fill)
             cornerRadius = radius(bar)
-            if (fullyTransparent) setStroke(strokeWidth(bar), outlineColor(bar))
+            setStroke(strokeWidth(bar), outlineColor(bar))
         }
         prepared.add(drawable)
         bar.background = drawable
@@ -167,38 +225,34 @@ internal class HomeSearchBarStyle(
             ?: (view.height / 2f)
     }
 
-    /** Debug builds only: what the bar is made of, so a mismatch with a launcher build is visible. */
-    private fun describeBar(bar: View, found: Scan): String = buildString {
-        append("Home search bar ").append(bar.javaClass.name).append(" (super ")
-            .append(bar.javaClass.superclass?.name).append(") ")
-            .append(bar.width).append('x').append(bar.height)
-            .append(" styled=").append(found.styled).append(" unknownBackground=").append(found.unknown)
-        var lines = 0
-        fun walk(view: View, depth: Int) {
-            if (lines++ >= 80) return
-            val name = if (view.id == View.NO_ID) "-" else runCatching {
-                view.resources.getResourceEntryName(view.id)
-            }.getOrDefault("?")
-            append('\n').append("  ".repeat(depth)).append(name).append(" : ").append(view.javaClass.name)
+    private fun entryName(view: View): String? =
+        if (view.id == View.NO_ID) null else runCatching { view.resources.getResourceEntryName(view.id) }.getOrNull()
+
+    /** Debug builds only: shown on screen and logged, so a mismatch is visible without a log. */
+    private fun summary(found: List<View>): String = buildString {
+        append("OneUIX search bar debug")
+        notes.forEach { append('\n').append(it) }
+        append("\nmatches in view tree: ").append(found.size)
+        found.take(4).forEach { view ->
+            append('\n').append(view.javaClass.simpleName).append(" #").append(entryName(view) ?: "-")
                 .append(' ').append(view.width).append('x').append(view.height)
                 .append(" bg=").append(view.background?.let { describeDrawable(it) } ?: "none")
-            if (view is ViewGroup) for (i in 0 until view.childCount) walk(view.getChildAt(i), depth + 1)
+            if (view is ViewGroup) {
+                val kids = (0 until view.childCount).take(6).joinToString(",") {
+                    val child = view.getChildAt(it)
+                    child.javaClass.simpleName + "(" + describeDrawable(child.background) + ")"
+                }
+                append("\n kids: ").append(kids)
+            }
         }
-        walk(bar, 1)
     }
 
-    private fun describeDrawable(drawable: Drawable): String = buildString {
-        append(drawable.javaClass.name)
-        if (drawable is GradientDrawable) {
-            append(" color=").append(drawable.color?.defaultColor?.let { "#%08x".format(it) } ?: "none")
-        }
-        if (drawable is LayerDrawable) {
-            append(" layers=[")
-            for (i in 0 until drawable.numberOfLayers) {
-                if (i > 0) append(", ")
-                drawable.getDrawable(i)?.let { append(it.javaClass.simpleName) }
-            }
-            append(']')
-        }
+    private fun describeDrawable(drawable: Drawable?): String = when (drawable) {
+        null -> "none"
+        is GradientDrawable -> "Gradient" + (drawable.color?.defaultColor?.let { "#%08x".format(it) } ?: "")
+        is LayerDrawable -> "Layer[" + (0 until drawable.numberOfLayers).joinToString("+") {
+            drawable.getDrawable(it)?.javaClass?.simpleName ?: "null"
+        } + "]"
+        else -> drawable.javaClass.simpleName
     }
 }
