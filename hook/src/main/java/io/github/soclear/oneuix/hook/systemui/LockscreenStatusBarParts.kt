@@ -145,10 +145,9 @@ internal class LockscreenStatusBarParts(
             ) {
                 found += notificationIconsInWindow(bar)
             }
-            if (LockscreenPart.BATTERY in hidden &&
-                found.none { StatusBarAppearance.lockscreenPart(entryName(it), it.javaClass.name) ==
-                    LockscreenPart.BATTERY }
-            ) {
+            if (LockscreenPart.BATTERY in hidden) {
+                // Do this even when a legacy BatteryMeterView matched above: One UI 9 may
+                // still render the visible battery in its separate Compose host.
                 found += batteryHostInWindow(bar)
             }
             return found.distinct()
