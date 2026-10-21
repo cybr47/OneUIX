@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -431,58 +432,43 @@ object Launcher {
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
     fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
         if (param.packageName != Package.LAUNCHER) return
-        val style = HomeSearchBarStyle(
-            colorLevel = colorLevel,
-            transparency = transparency,
-            report = { xlog(it) },
-            dump = { xlog(it, priority = Log.INFO) },
-        )
-        // The Honeyspace search bar classes report their instances. They are not guaranteed to be
-        // Views, so the object and the Views it holds are both accepted.
-        listOf(
-            "com.honeyspace.ui.common.qsb.HomeSearchBar",
-            "com.honeyspace.ui.common.qsb.WidgetSearchBar",
-        ).forEach { name ->
-            try {
-                val type = param.classLoader.loadClass(name)
-                val methods = type.declaredMethods.filter {
-                    it.name == "setBackgroundRadius" || it.name == "applyCapturedBlur"
+        val style = HomeSearchBarStyle(colorLevel, transparency)
+        val pkg = "com.honeyspace.ui.common.qsb."
+        try {
+            val bar = param.classLoader.loadClass(pkg + "HomeSearchBar")
+            val drawableClass = Class.forName("android.graphics.drawable.Drawable")
+
+            // The launcher sets its rounded outline drawable here: recolour it on the way in.
+            xposedModule.hook(bar.getDeclaredMethod("setBackground", drawableClass)).intercept { chain ->
+                val view = chain.thisObject as? View
+                val original = chain.args.getOrNull(0) as? Drawable
+                if (view == null || original == null) {
+                    chain.proceed()
+                } else {
+                    chain.proceed(arrayOf(style.background(view, original)))
                 }
-                style.note("${type.simpleName}: view=${View::class.java.isAssignableFrom(type)} " +
-                    "ctors=${type.declaredConstructors.size} methods=${methods.map { it.name }.distinct()}")
-                type.declaredConstructors.forEach { constructor ->
-                    xposedModule.hook(constructor).intercept { chain ->
-                        val result = chain.proceed()
-                        style.trackObject(chain.thisObject)
-                        result
-                    }
-                }
-                methods.forEach { method ->
+            }
+
+            // Real-time blur would be drawn over the fill.
+            bar.declaredMethods.firstOrNull { it.name == "applyRealtimeBlur" }?.let { method ->
+                xposedModule.hook(method).intercept { null }
+            }
+
+            // Captured-blur and dim layers are switched back on by the launcher: hide them again.
+            mapOf(
+                "QSBBlurBackground" to listOf("setImageBitmap", "updateVisibility", "onConfigurationChanged"),
+                "QSBDimBackground" to listOf("updateVisibility", "updateColor"),
+            ).forEach { (name, methods) ->
+                val layer = param.classLoader.loadClass(pkg + name)
+                layer.declaredMethods.filter { it.name in methods }.forEach { method ->
                     xposedModule.hook(method).intercept { chain ->
                         val result = chain.proceed()
-                        style.trackObject(chain.thisObject)
-                        chain.args.forEach { if (it is View) style.track(it) }
+                        (chain.thisObject as? View)?.let(style::hideLayer)
                         result
                     }
                 }
-            } catch (t: Throwable) {
-                style.note("$name: not usable (${t.javaClass.simpleName})")
-                xlog(t)
-            }
-        }
-        // Independent of those classes: search the launcher's view tree when it resumes.
-        try {
-            val launcher = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
-            xposedModule.hook(launcher.getDeclaredMethod("onResume")).intercept { chain ->
-                val result = chain.proceed()
-                (chain.thisObject as? Activity)?.window?.decorView?.let { root ->
-                    root.post { style.discover(root) }
-                    root.postDelayed({ style.discover(root) }, 1500)
-                }
-                result
             }
         } catch (t: Throwable) {
-            style.note("Launcher.onResume: not usable (${t.javaClass.simpleName})")
             xlog(t)
         }
     }
