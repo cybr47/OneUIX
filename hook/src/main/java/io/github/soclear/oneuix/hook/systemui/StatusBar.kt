@@ -356,7 +356,10 @@ object StatusBar {
         // Resolve Samsung's dedicated battery host ID in the current SystemUI resources and
         // search the same window before giving up. This is deliberately battery-only: searching
         // the whole window for generic Compose views could hide unrelated status-bar icons.
-        if (part == StatusBarAppearance.LockscreenPart.BATTERY && found.isEmpty()) {
+        if (part == StatusBarAppearance.LockscreenPart.BATTERY) {
+            // Always add the dedicated One UI 9 Compose battery host, even if a legacy
+            // BatteryMeterView was found in this subtree. That legacy match may not be the
+            // battery actually rendered in the status bar.
             val batteryHostId = root.resources.getIdentifier(
                 "battery_meter_composable_view", "id", Package.SYSTEMUI
             )
