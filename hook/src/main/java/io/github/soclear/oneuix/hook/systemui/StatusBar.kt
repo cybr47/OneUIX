@@ -579,6 +579,51 @@ object StatusBar {
             }
         }.onFailure { xlog(it) }
 
+        // The Compose battery host can be outside both KeyguardStatusBarView and the
+        // HomeStatusBarViewBinder view tree. Hook the host's own layout instead of relying on
+        // finding it through either tree, then track its parent so visibility is restored on unlock.
+        if (hideBatteryIcon) runCatching {
+            val batteryHostClass = classLoader.loadClass(
+                "com.android.systemui.statusbar.pipeline.shared.ui.view.SingleBindableStatusBarComposeIconView"
+            )
+            val batteryHostId = resources.getIdentifier(
+                "battery_meter_composable_view", "id", Package.SYSTEMUI
+            )
+            if (batteryHostId != 0) {
+                val layoutSignature = arrayOf(
+                    Boolean::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType,
+                    Int::class.javaPrimitiveType
+                )
+                val onLayout = generateSequence(batteryHostClass as Class<*>?) { it.superclass }
+                    .mapNotNull { owner ->
+                        runCatching { owner.getDeclaredMethod("onLayout", *layoutSignature) }.getOrNull()
+                    }
+                    .firstOrNull() ?: error("No onLayout method found for Compose status-bar icon")
+                val batteryParts = LockscreenStatusBarParts(
+                    hidden = setOf(StatusBarAppearance.LockscreenPart.BATTERY),
+                    onlyWhileLocked = true,
+                    isConnectivitySlot = { isLockscreenConnectivitySlot(it) },
+                    report = { xlog(it) },
+                    dump = { xlog(it, priority = Log.INFO) },
+                )
+                xposedModule.hook(onLayout).intercept { chain ->
+                    val result = chain.proceed()
+                    val host = chain.thisObject as? View
+                    if (host != null && batteryHostClass.isInstance(host) &&
+                        host.id == batteryHostId
+                    ) {
+                        (host.parent as? View)?.let(batteryParts::track)
+                    }
+                    result
+                }
+            } else {
+                xlog("Lockscreen battery host ID battery_meter_composable_view was not found")
+            }
+        }.onFailure { xlog(it) }
+
         // One UI 9 can also draw the lock screen's carrier, notification icons and battery in the
         // status bar view that Home uses. Hide the same parts there, but only while the keyguard is
         // locked: they are restored as soon as it is not, so Home and apps are unaffected.
