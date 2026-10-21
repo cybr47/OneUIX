@@ -1,7 +1,12 @@
 package io.github.soclear.oneuix.ui.category
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,6 +21,7 @@ import io.github.soclear.oneuix.R
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.SettingViewModel
 import io.github.soclear.oneuix.ui.component.SwitchItem
+import kotlin.math.roundToInt
 
 @Composable
 fun DetailPaneLauncher(
@@ -58,19 +64,38 @@ fun DetailPaneLauncher(
             checked = uiState.searchBarColorsEnabled,
             onCheckedChange = { onEvent(LauncherEvent.SearchBarColorsEnabled(it)) }
         )
-        if (uiState.searchBarColorsEnabled) {
+        AnimatedVisibility(uiState.searchBarColorsEnabled) {
+            // Keep the value locally while dragging and save once on release, like the other sliders.
+            var color by remember { mutableFloatStateOf(uiState.searchBarColorLevel.coerceIn(0f, 1f)) }
+            var transparency by remember {
+                mutableFloatStateOf(uiState.searchBarBackgroundTransparency.coerceIn(0f, 1f))
+            }
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(stringResource(id = R.string.searchBarColor_title))
-                Slider(
-                    value = uiState.searchBarColorLevel.coerceIn(0f, 1f),
-                    onValueChange = { onEvent(LauncherEvent.SearchBarColorLevel(it)) },
-                    valueRange = 0f..1f
+                Text(
+                    stringResource(
+                        id = R.string.searchBarColor_value,
+                        stringResource(id = R.string.searchBarColor_title),
+                        (color * 100).roundToInt()
+                    )
                 )
-                Text(stringResource(id = R.string.searchBarTransparency_title))
                 Slider(
-                    value = uiState.searchBarBackgroundTransparency.coerceIn(0f, 1f),
-                    onValueChange = { onEvent(LauncherEvent.SearchBarTransparency(it)) },
-                    valueRange = 0f..1f
+                    value = color,
+                    onValueChange = { color = it },
+                    valueRange = 0f..1f,
+                    onValueChangeFinished = { onEvent(LauncherEvent.SearchBarColorLevel(color)) }
+                )
+                Text(
+                    stringResource(
+                        id = R.string.searchBarColor_value,
+                        stringResource(id = R.string.searchBarTransparency_title),
+                        (transparency * 100).roundToInt()
+                    )
+                )
+                Slider(
+                    value = transparency,
+                    onValueChange = { transparency = it },
+                    valueRange = 0f..1f,
+                    onValueChangeFinished = { onEvent(LauncherEvent.SearchBarTransparency(transparency)) }
                 )
             }
         }
