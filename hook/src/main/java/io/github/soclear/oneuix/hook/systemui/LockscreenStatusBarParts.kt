@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import io.github.soclear.oneuix.common.BuildConfig
+import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.common.StatusBarAppearance
 import io.github.soclear.oneuix.common.StatusBarAppearance.LockscreenPart
 import java.lang.ref.WeakReference
@@ -160,7 +161,7 @@ internal class LockscreenStatusBarParts(
          */
         private fun batteryHostInWindow(bar: View): List<View> {
             val id = bar.resources.getIdentifier(
-                "battery_meter_composable_view", "id", bar.context.packageName
+                "battery_meter_composable_view", "id", Package.SYSTEMUI
             )
             if (id == 0) return emptyList()
             val root = bar.rootView
