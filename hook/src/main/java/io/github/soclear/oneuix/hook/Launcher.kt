@@ -428,6 +428,57 @@ object Launcher {
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
+    fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
+        if (param.packageName != Package.LAUNCHER) return
+        try {
+            val searchBarClass = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.HomeSearchBar")
+            searchBarClass.declaredConstructors.forEach { constructor ->
+                try {
+                    xposedModule.hook(constructor).intercept { chain ->
+                        val result = chain.proceed()
+                        val view = chain.thisObject as? View ?: return@intercept result
+                        val applyStyle = {
+                            val level = colorLevel.coerceIn(0f, 1f)
+                            val gray = (level * 255f).roundToInt()
+                            val fillAlpha = ((1f - transparency.coerceIn(0f, 1f)) * 255f).roundToInt()
+                            val fill = Color.argb(fillAlpha, gray, gray, gray)
+                            val stroke = Color.argb(220, 190, 190, 195)
+                            val radius = view.height.takeIf { it > 0 }?.div(2f) ?: 32f
+                            view.background = object : android.graphics.drawable.Drawable() {
+                                private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                                override fun draw(canvas: android.graphics.Canvas) {
+                                    val b = bounds
+                                    val inset = paint.strokeWidth / 2f + 1f
+                                    val rect = RectF(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset)
+                                    paint.style = android.graphics.Paint.Style.FILL
+                                    paint.color = fill
+                                    canvas.drawRoundRect(rect, radius, radius, paint)
+                                    paint.style = android.graphics.Paint.Style.STROKE
+                                    paint.strokeWidth = 2f
+                                    paint.color = stroke
+                                    canvas.drawRoundRect(rect, radius, radius, paint)
+                                }
+                                override fun setAlpha(alpha: Int) {}
+                                override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {}
+                                @Deprecated("Deprecated in Android")
+                                override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
+                            }
+                            view.invalidate()
+                        }
+                        view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                            override fun onViewAttachedToWindow(v: View) = applyStyle()
+                            override fun onViewDetachedFromWindow(v: View) {}
+                        })
+                        view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> applyStyle() }
+                        view.post { applyStyle() }
+                        result
+                    }
+                } catch (t: Throwable) { xlog(t) }
+            }
+        } catch (t: Throwable) { xlog(t) }
+    }
+
+    context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
     fun hideAppsSearchBar() {
         try {
             xposedModule.hook(
