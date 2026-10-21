@@ -2,6 +2,12 @@ package io.github.soclear.oneuix.ui.category
 
 import android.os.Build
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -46,6 +52,29 @@ fun DetailPaneLauncher(
             onCheckedChange = { onEvent(LauncherEvent.HideAppsSearchBar(it)) }
         )
         SwitchItem(
+            icon = ImageVector.vectorResource(id = R.drawable.apps),
+            title = stringResource(id = R.string.searchBarColors_title),
+            summary = stringResource(id = R.string.searchBarColors_summary),
+            checked = uiState.searchBarColorsEnabled,
+            onCheckedChange = { onEvent(LauncherEvent.SearchBarColorsEnabled(it)) }
+        )
+        if (uiState.searchBarColorsEnabled) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(stringResource(id = R.string.searchBarColor_title))
+                Slider(
+                    value = uiState.searchBarColorLevel.coerceIn(0f, 1f),
+                    onValueChange = { onEvent(LauncherEvent.SearchBarColorLevel(it)) },
+                    valueRange = 0f..1f
+                )
+                Text(stringResource(id = R.string.searchBarTransparency_title))
+                Slider(
+                    value = uiState.searchBarBackgroundTransparency.coerceIn(0f, 1f),
+                    onValueChange = { onEvent(LauncherEvent.SearchBarTransparency(it)) },
+                    valueRange = 0f..1f
+                )
+            }
+        }
+        SwitchItem(
             icon = ImageVector.vectorResource(id = R.drawable.position_bottom_right),
             title = stringResource(id = R.string.removeShortcutBadge_title),
             summary = stringResource(id = R.string.removeShortcutBadge_summary),
@@ -67,6 +96,15 @@ sealed interface LauncherEvent {
 
     @JvmInline
     value class HideAppsSearchBar(val value: Boolean) : LauncherEvent
+
+    @JvmInline
+    value class SearchBarColorsEnabled(val value: Boolean) : LauncherEvent
+
+    @JvmInline
+    value class SearchBarColorLevel(val value: Float) : LauncherEvent
+
+    @JvmInline
+    value class SearchBarTransparency(val value: Float) : LauncherEvent
 
     @JvmInline
     value class RemoveShortcutBadge(val value: Boolean) : LauncherEvent
@@ -99,6 +137,9 @@ fun SettingViewModel.onLauncherEvent(event: LauncherEvent) {
                 )
             )
 
+            is LauncherEvent.SearchBarColorsEnabled -> preference.copy(other = preference.other.copy(searchBarColorsEnabled = event.value))
+            is LauncherEvent.SearchBarColorLevel -> preference.copy(other = preference.other.copy(searchBarColorLevel = event.value))
+            is LauncherEvent.SearchBarTransparency -> preference.copy(other = preference.other.copy(searchBarBackgroundTransparency = event.value))
             is LauncherEvent.RemoveShortcutBadge -> preference.copy(
                 other = preference.other.copy(
                     removeShortcutBadge = event.value
