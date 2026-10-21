@@ -17,6 +17,7 @@ enum class Category(val packageName: String) {
     HealthMonitor(Package.HEALTH_MONITOR),
     Launcher(Package.LAUNCHER),
     Messaging(Package.MESSAGING),
+    NFC(Package.NFC),
     Notes(Package.NOTES),
     PhotoRetouching(Package.PHOTO_RETOUCHING),
     SketchBook(Package.SKETCH_BOOK),
@@ -24,5 +25,6 @@ enum class Category(val packageName: String) {
     ThemeCenter(Package.THEME_CENTER),
     Video(Package.VIDEO),
     WatchManager(Package.WATCH_MANAGER),
-    Weather(Package.WEATHER);
+    Weather(Package.WEATHER),
+    Other("");
 }

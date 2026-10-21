@@ -11,6 +11,8 @@
         android:name="${applicationId}.permission.FOD_REFRESH"
         android:protectionLevel="signature" />
     <uses-permission android:name="${applicationId}.permission.FOD_REFRESH" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-permission android:name="android.permission.NFC" />
 
     <uses-permission
         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
@@ -48,6 +50,10 @@
         <package android:name="com.sec.android.gallery3d" />
         <package android:name="com.sec.android.mimage.photoretouching" />
     </queries>
+    <!-- The app picker needs to list all installed apps, including system apps. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
 
     <application
         android:allowBackup="true"

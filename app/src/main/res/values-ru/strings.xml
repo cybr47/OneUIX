@@ -87,7 +87,10 @@
     <string name="autoExpandNotifications_title">Автоматически разворачивать уведомления</string>
     <string name="hideOngoingActivityMedia_title">Скрыть активность медиаприложений</string>
     <string name="hideOngoingActivityMedia_summary">Скрывать капсулу активности в строке состояния и медиауведомление при воспроизведении музыки в фоне</string>
-    <string name="hideOngoingActivityMedia_packages_hint">Имена пакетов через запятую</string>
+    <string name="app_picker_title">Выбор приложений</string>
+    <string name="app_picker_search_hint">Поиск по названию или имени пакета</string>
+    <string name="app_picker_selected_count">Выбрано приложений: %1$d</string>
+    <string name="app_picker_empty">Нет подходящих приложений</string>
     <string name="customPowerMenu_title">Настроить действия меню питания</string>
     <string name="powerMenuActionVisible_summary">Показано, позиция %1$d</string>
     <string name="powerMenuActionHidden_summary">Скрыто</string>
@@ -179,6 +182,8 @@
     <string name="disableWritingToolkitGlobally_title">Отключить инструменты для письма глобально</string>
     <string name="disableWritingToolkitGlobally_summary">Удаляет инструменты для письма Samsung из меню выделения текста во всех приложениях через системный фреймворк</string>
     <string name="disableFlagSecure_title">Отключить FLAG_SECURE</string>
+    <string name="hideScreenshotDetection_title">Скрывать снимки экрана от приложений</string>
+    <string name="hideScreenshotDetection_summary">Добавьте выбранные приложения в область действия модуля и перезапустите их. Блокируются уведомления о захвате экрана и распознанных снимках. Снимки видимы при выборе фото; уведомления об обычных фото сохраняются</string>
     <string name="disableFlagSecure_summary">Разрешить снимки и запись экрана в защищенных окнах</string>
     <string name="backup_config">Резервное копирование</string>
     <string name="restore_config">Восстановить конфиг</string>
@@ -193,4 +198,18 @@
     <string name="supportBixbyCustomWakeup_summary">Включить свои фразы и повторную загрузку китайских моделей. Добавьте Bixby и голосовое пробуждение в область действия модуля и перезапустите оба приложения.</string>
     <string name="bypassBixbyWakeWordRestrictions_title">Ослабить ограничения фраз</string>
     <string name="bypassBixbyWakeWordRestrictions_summary">Разрешить дополнительные тексты фраз. Запись голоса и проверка моделей по-прежнему необходимы.</string>
+    <string name="nfc_filter_title">Фильтр NFC-карт</string>
+    <string name="nfc_service">Служба NFC</string>
+    <string name="nfc_filter_summary">Добавьте NFC (com.android.nfc) в область действия модуля и один раз перезагрузите телефон. После этого изменения списка применяются сразу. Нажмите на сохранённую карту, чтобы изменить заметку.</string>
+    <string name="nfc_mode_off">Выключено</string>
+    <string name="nfc_mode_blacklist">Чёрный список: игнорировать карты из списка</string>
+    <string name="nfc_mode_whitelist">Белый список: распознавать только карты из списка</string>
+    <string name="nfc_scan_hint">Поднесите карту к телефону, чтобы прочитать UID, или введите его вручную, затем сохраните. Здесь можно читать и отфильтрованные карты.</string>
+    <string name="nfc_unavailable">Устройство не поддерживает NFC. UID можно ввести вручную.</string>
+    <string name="nfc_disabled">Включите NFC для чтения карты или введите её UID вручную.</string>
+    <string name="nfc_settings">Настройки NFC</string>
+    <string name="nfc_uid_invalid">Введите полные шестнадцатеричные байты, например 92014119.</string>
+    <string name="nfc_note">Заметка (необязательно)</string>
+    <string name="nfc_save">Сохранить / обновить</string>
+    <string name="nfc_delete">Удалить</string>
 </resources>
