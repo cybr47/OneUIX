@@ -127,8 +127,13 @@ internal class LockscreenStatusBarParts(
                     val part = StatusBarAppearance.lockscreenPart(entryName(child), child.javaClass.name)
                     when {
                         part == null -> if (child is ViewGroup) walk(child)
-                        part !in hidden -> Unit
-                        part == LockscreenPart.CONNECTIVITY_ICONS -> found += connectivity(child)
+                        part == LockscreenPart.CONNECTIVITY_ICONS -> {
+                            if (part in hidden) found += connectivity(child)
+                            // This container can also hold other parts, such as the battery.
+                            if (child is ViewGroup) walk(child)
+                        }
+                        // A part that is kept may still contain a part that is hidden.
+                        part !in hidden -> if (child is ViewGroup) walk(child)
                         else -> found += child
                     }
                 }
@@ -183,8 +188,21 @@ internal class LockscreenStatusBarParts(
                 }
             }
             walk(container)
-            return if (hasSlots) icons else listOf(container)
+            return when {
+                hasSlots -> icons
+                !containsPart(container, LockscreenPart.BATTERY) -> listOf(container)
+                // No per-icon information and the battery is inside: hide only what is not the
+                // battery, never the container as a whole.
+                else -> (container as? ViewGroup)?.let { group ->
+                    (0 until group.childCount).map(group::getChildAt)
+                        .filter { !containsPart(it, LockscreenPart.BATTERY) }
+                }.orEmpty()
+            }
         }
+
+        private fun containsPart(view: View, part: LockscreenPart): Boolean =
+            StatusBarAppearance.lockscreenPart(entryName(view), view.javaClass.name) == part ||
+                (view is ViewGroup && (0 until view.childCount).any { containsPart(view.getChildAt(it), part) })
     }
 
     private fun entryName(view: View): String? =
