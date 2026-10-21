@@ -24,6 +24,25 @@ object StatusBarAppearance {
     fun launcherAllowsAdaptiveTint(nativeLauncherAppearance: Boolean?, recentsTask: Boolean): Boolean =
         !recentsTask && nativeLauncherAppearance == false
 
+    /** Lock screen status bar parts that are located by view id or class name. */
+    enum class LockscreenPart { NOTIFICATION_ICONS, BATTERY }
+
+    /**
+     * Classify a view of the lock screen status bar from its resource entry name and class.
+     * Matching is by name fragment, not exact class, because Samsung wraps or replaces these views
+     * (for example the Compose battery). Containers that merely hold them return null.
+     */
+    fun lockscreenPart(idName: String?, className: String): LockscreenPart? {
+        val id = idName.orEmpty().lowercase()
+        val type = className.substringAfterLast('.').lowercase()
+        fun has(vararg keys: String) = keys.any { id.contains(it) || type.contains(it) }
+        return when {
+            has("notification_icon", "notificationicon") -> LockscreenPart.NOTIFICATION_ICONS
+            has("battery") -> LockscreenPart.BATTERY
+            else -> null
+        }
+    }
+
     /**
      * Surfaces where the "Fade clock" option hides the clock: Home and Recents, never the app drawer.
      * The launcher reports `true` for the drawer (and Recents), `false` for Home. When it has not

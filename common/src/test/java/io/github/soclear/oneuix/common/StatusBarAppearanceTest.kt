@@ -63,6 +63,20 @@ class StatusBarAppearanceTest {
         assertFalse(StatusBarAppearance.isHomeAppearanceActive(true, true, false, 0, true, false))
     }
 
+    @Test fun lockscreenNotificationAndBatteryViewsAreRecognisedByIdOrClass() {
+        val part = StatusBarAppearance::lockscreenPart
+        val p = StatusBarAppearance.LockscreenPart
+        assertEquals(p.NOTIFICATION_ICONS, part("notification_icon_area", "android.widget.FrameLayout"))
+        assertEquals(p.NOTIFICATION_ICONS, part(null, "com.android.systemui.statusbar.phone.NotificationIconContainer"))
+        assertEquals(p.BATTERY, part("battery", "androidx.compose.ui.platform.ComposeView"))
+        assertEquals(p.BATTERY, part(null, "com.android.systemui.battery.view.SamsungBatteryComposeView"))
+        assertEquals(p.BATTERY, part(null, "com.android.systemui.battery.BatteryMeterView"))
+        // Containers that hold several parts are searched, never hidden as a whole.
+        assertNull(part("system_icons", "android.widget.LinearLayout"))
+        assertNull(part("statusIcons", "com.android.systemui.statusbar.phone.StatusIconContainer"))
+        assertNull(part(null, "android.view.View"))
+    }
+
     @Test fun clockHidesOnHomeAndRecentsButNotInTheAppDrawer() {
         // Home: launcher reports native appearance == false.
         assertTrue(StatusBarAppearance.isClockSurface(true, false, false))
