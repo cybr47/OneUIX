@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.View
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.Preference
@@ -33,6 +34,12 @@ internal object HomeStatusBar {
     ) {
         Controller(this, module, options).install()
     }
+
+    private const val REFRESH_WINDOW_MS = 50L
+
+    private val STATE_EVENTS = setOf(
+        "onStateChanged", "onStatePostChange", "onExpandedChanged", "onDozingChanged", "onDreamingChanged"
+    )
 
     private class Controller(
         private val context: Context,
@@ -63,7 +70,13 @@ internal object HomeStatusBar {
         private val darkBackground = arrayOfNulls<Boolean>(2)
         private var sampling = false
         private val reported = mutableSetOf<String>()
-        private val refresh = Runnable { safely("home state") { refreshHome() } }
+        private var refreshPending = false
+        private var lastRefresh = 0L
+        private val refresh = Runnable {
+            refreshPending = false
+            lastRefresh = SystemClock.uptimeMillis()
+            safely("home state") { refreshHome() }
+        }
 
         private fun safely(part: String, action: () -> Unit) {
             try { action() } catch (t: Throwable) {
@@ -72,9 +85,12 @@ internal object HomeStatusBar {
         }
 
         private fun scheduleRefresh() {
-            // Binder task callbacks can arrive in bursts. Do not poll or queue one job per event.
-            main.removeCallbacks(refresh)
-            main.post(refresh)
+            // Binder task callbacks can arrive in bursts. Do not poll or queue one job per event:
+            // the first event runs at once, further ones within the window share one later run.
+            if (refreshPending) return
+            refreshPending = true
+            val wait = REFRESH_WINDOW_MS - (SystemClock.uptimeMillis() - lastRefresh)
+            if (wait > 0) main.postDelayed(refresh, wait) else main.post(refresh)
         }
 
         fun install() {
@@ -93,7 +109,9 @@ internal object HomeStatusBar {
                             if (stateController !== instance && instance != null) {
                                 stateController = instance
                                 val listener = proxy(stateListener) { name, _ ->
-                                    if (name.startsWith("on")) scheduleRefresh()
+                                    // Doze-amount, pulsing and fullscreen callbacks fire constantly
+                                    // during transitions and change nothing used here.
+                                    if (name in STATE_EVENTS) scheduleRefresh()
                                     null
                                 }
                                 addListener.invoke(instance, listener)
@@ -157,6 +175,26 @@ internal object HomeStatusBar {
         @Suppress("DEPRECATION")
         @SuppressLint("MissingPermission") // Runs inside the already-privileged SystemUI process.
         private fun refreshHome() {
+            val controller = stateController
+            val state = runCatching { controller?.reflect?.call("getState") as? Int }.getOrNull()
+            val expanded = runCatching { controller?.reflect?.call("isExpanded") as? Boolean }.getOrNull() ?: true
+            val dozing = runCatching { controller?.reflect?.call("isDozing") as? Boolean }.getOrNull() ?: true
+            val dreaming = runCatching { controller?.reflect?.call("isDreaming") as? Boolean }.getOrNull() ?: true
+            val interactive = context.getSystemService(PowerManager::class.java).isInteractive
+            val locked = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+            // Nothing below is active with the screen off, locked, dozing or the shade open, so the
+            // task lookup (a binder call) is skipped. Every such state change refreshes again.
+            val surfaceInactive = !interactive || locked || state != 0 || expanded || dozing || dreaming
+            if (surfaceInactive) {
+                tintActive = false
+                clockHidden = false
+                clocks.values.toList().forEach { it.setHidden(false) }
+                if (options.adaptiveHomeStatusBar) {
+                    safely("sampling") { updateSampling() }
+                    safely("tint") { updateAppearance() }
+                }
+                return
+            }
             // A launcher package alone is not enough: Recents and other activity types must not
             // be treated as Home. SystemUI already has permission to read the current task.
             val (isHome, isRecents) = runCatching {
@@ -172,13 +210,6 @@ internal object HomeStatusBar {
             }.getOrDefault(false to false)
             homeTask = isHome
             recentsTask = isRecents
-            val controller = stateController
-            val state = runCatching { controller?.reflect?.call("getState") as? Int }.getOrNull()
-            val expanded = runCatching { controller?.reflect?.call("isExpanded") as? Boolean }.getOrNull() ?: true
-            val dozing = runCatching { controller?.reflect?.call("isDozing") as? Boolean }.getOrNull() ?: true
-            val dreaming = runCatching { controller?.reflect?.call("isDreaming") as? Boolean }.getOrNull() ?: true
-            val interactive = context.getSystemService(PowerManager::class.java).isInteractive
-            val locked = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
             tintActive = StatusBarAppearance.isHomeAppearanceActive(
                 homeTask && !isRecents, interactive, locked, state, expanded, dozing || dreaming
             )
