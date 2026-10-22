@@ -86,6 +86,7 @@ internal class HomeSearchBarStyle(
         private var observer: ViewTreeObserver? = null
         private var summaryScheduled = false
         private var reported = false
+        var draws = 0
 
         init {
             view.addOnAttachStateChangeListener(this)
@@ -104,13 +105,19 @@ internal class HomeSearchBarStyle(
         override fun onPreDraw(): Boolean {
             val bar = view.get() ?: return true
             if (bar.width <= 0 || bar.height <= 0) return true
+            draws++
             try {
                 restyle(bar)
                 if (BuildConfig.DEBUG && !summaryScheduled) {
                     summaryScheduled = true
                     bar.postDelayed({
-                        val text = "OneUIX search bar debug\n" + describe(bar)
-                        dump(text)
+                        // Show the state the launcher left, then restyle by hand and show it again:
+                        // this separates "the listener is not running" from "the change is undone".
+                        val before = state(bar)
+                        restyle(bar)
+                        val text = "OneUIX search bar debug, fill=#%08x draws=%d\nbefore: %s\nafter: %s"
+                            .format(fill, draws, before, state(bar))
+                        dump(text + "\n" + describe(bar))
                         Toast.makeText(bar.context, text, Toast.LENGTH_LONG).show()
                     }, 2500)
                 }
@@ -175,6 +182,17 @@ internal class HomeSearchBarStyle(
     private fun dimension(view: View, name: String): Float? {
         val id = view.resources.getIdentifier(name, "dimen", view.context.packageName)
         return if (id == 0) null else runCatching { view.resources.getDimension(id) }.getOrNull()
+    }
+
+    /** Debug builds only: the properties this class changes. */
+    private fun state(bar: View): String {
+        val color = (bar.background as? GradientDrawable)?.color?.defaultColor
+        val layers = (bar as? ViewGroup)?.let { group ->
+            (0 until group.childCount).map { group.getChildAt(it) }
+                .filter { it.javaClass.name.endsWith("QSBBlurBackground") || it.javaClass.name.endsWith("QSBDimBackground") }
+                .joinToString(" ") { it.javaClass.simpleName.removePrefix("QSB").take(4) + "=" + it.visibility }
+        }
+        return "bg=" + (color?.let { "#%08x".format(it) } ?: bar.background?.javaClass?.simpleName) + " " + layers
     }
 
     /** Debug builds only. */
