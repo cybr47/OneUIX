@@ -149,23 +149,29 @@ internal class HomeSearchBarStyle(
             }
         }
 
-        // 2. Blur and dim layers sit above the background and would cover the new fill.
-        if (bar is ViewGroup) {
-            for (index in 0 until bar.childCount) {
-                val child = bar.getChildAt(index)
-                val name = child.javaClass.name
-                if ((name.endsWith("QSBBlurBackground") || name.endsWith("QSBDimBackground")) &&
-                    child.visibility != View.GONE
-                ) {
-                    child.visibility = View.GONE
-                }
-            }
-        }
+        // 2. Blur and dim layers sit above the background and would cover the new fill. They are
+        // children of the widget host container, not of the bar itself, so search a few levels.
+        layers(bar).forEach { if (it.visibility != View.GONE) it.visibility = View.GONE }
 
         // 3. Real-time blur, drawn behind the whole view by the window compositor.
         val get = getBlur
         val set = setBlur
         if (get != null && set != null && get.invoke(bar) != null) set.invoke(bar, null as Any?)
+    }
+
+    private fun layers(root: View): List<View> {
+        val found = mutableListOf<View>()
+        fun walk(view: View, depth: Int) {
+            if (view !is ViewGroup || depth > 3) return
+            for (index in 0 until view.childCount) {
+                val child = view.getChildAt(index)
+                val name = child.javaClass.name
+                if (name.endsWith("QSBBlurBackground") || name.endsWith("QSBDimBackground")) found += child
+                else walk(child, depth + 1)
+            }
+        }
+        walk(root, 0)
+        return found
     }
 
     private fun semMethod(name: String, parameters: Int): Method? =
@@ -187,11 +193,7 @@ internal class HomeSearchBarStyle(
     /** Debug builds only: the properties this class changes. */
     private fun state(bar: View): String {
         val color = (bar.background as? GradientDrawable)?.color?.defaultColor
-        val layers = (bar as? ViewGroup)?.let { group ->
-            (0 until group.childCount).map { group.getChildAt(it) }
-                .filter { it.javaClass.name.endsWith("QSBBlurBackground") || it.javaClass.name.endsWith("QSBDimBackground") }
-                .joinToString(" ") { it.javaClass.simpleName.removePrefix("QSB").take(4) + "=" + it.visibility }
-        }
+        val layers = layers(bar).joinToString(" ") { it.javaClass.simpleName.removePrefix("QSB").take(4) + "=" + it.visibility }
         return "bg=" + (color?.let { "#%08x".format(it) } ?: bar.background?.javaClass?.simpleName) + " " + layers
     }
 
