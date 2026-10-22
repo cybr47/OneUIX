@@ -432,7 +432,12 @@ object Launcher {
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
     fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
         if (param.packageName != Package.LAUNCHER) return
-        val style = HomeSearchBarStyle(colorLevel, transparency)
+        val style = HomeSearchBarStyle(
+            colorLevel = colorLevel,
+            transparency = transparency,
+            dump = { xlog(it, priority = Log.INFO) },
+            report = { xlog(it) },
+        )
         val pkg = "com.honeyspace.ui.common.qsb."
         try {
             val bar = param.classLoader.loadClass(pkg + "HomeSearchBar")
@@ -446,6 +451,15 @@ object Launcher {
                     chain.proceed()
                 } else {
                     chain.proceed(arrayOf(style.background(view, original)))
+                }
+            }
+
+            // The Google search widget draws its own pill: restyle the widget's views.
+            param.classLoader.loadClass(pkg + "WidgetSearchBar").declaredConstructors.forEach { constructor ->
+                xposedModule.hook(constructor).intercept { chain ->
+                    val result = chain.proceed()
+                    (chain.thisObject as? View)?.let(style::trackWidgetBar)
+                    result
                 }
             }
 
