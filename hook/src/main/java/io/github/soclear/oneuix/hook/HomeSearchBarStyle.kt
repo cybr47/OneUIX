@@ -59,6 +59,16 @@ internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
         if (tracked.add(bar)) Bar(bar)
     }
 
+    /** The widget container, when it is not inside a WidgetSearchBar that is styled already. */
+    fun trackStandalone(container: View) {
+        var parent = container.parent
+        while (parent is View) {
+            if (parent.javaClass.name.endsWith("WidgetSearchBar")) return
+            parent = parent.parent
+        }
+        track(container)
+    }
+
     private inner class Bar(view: View) : ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
         private val view = WeakReference(view)
         private var observer: ViewTreeObserver? = null

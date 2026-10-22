@@ -445,6 +445,23 @@ object Launcher {
         } catch (t: Throwable) {
             xlog(t)
         }
+        // With HomeUp's DIY home screen the widget container is not always inside a WidgetSearchBar,
+        // so it is also found through the launcher's own calls on it. A container inside a
+        // WidgetSearchBar is skipped: that bar already carries the style.
+        try {
+            val container = param.classLoader.loadClass("com.honeyspace.ui.common.widget.QSBHostViewContainer")
+            for (name in listOf("onLayoutAppWidget", "updateBackgroundView")) {
+                container.declaredMethods.filter { it.name == name }.forEach { method ->
+                    xposedModule.hook(method).intercept { chain ->
+                        val result = chain.proceed()
+                        (chain.thisObject as? View)?.let(style::trackStandalone)
+                        result
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
