@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -434,6 +435,69 @@ object StatusBar {
         }
     }
 
+    /**
+     * The lock screen battery is a ComposeView that KeyguardStatusBarViewController.onViewAttached
+     * passes to SamsungBatteryViewBinder.bind (or UnifiedBatteryViewBinder.bind). The view has no
+     * field or reliable id, so it is taken from that call and kept hidden from then on. The same
+     * binders also serve Home and Quick Settings, so only calls made inside onViewAttached count.
+     */
+    private fun hideKeyguardBatteryView(classLoader: ClassLoader, xposedModule: XposedModule) {
+        val inKeyguardAttach = ThreadLocal<Boolean>()
+        val controller = classLoader.loadClass(
+            "com.android.systemui.statusbar.phone.KeyguardStatusBarViewController"
+        )
+        xposedModule.hook(controller.getDeclaredMethod("onViewAttached")).intercept { chain ->
+            inKeyguardAttach.set(true)
+            try {
+                chain.proceed()
+            } finally {
+                inKeyguardAttach.set(false)
+            }
+        }
+        listOf(
+            "com.android.systemui.battery.SamsungBatteryViewBinder",
+            "com.android.systemui.statusbar.pipeline.battery.ui.binder.UnifiedBatteryViewBinder",
+        ).forEach { name ->
+            val binder = runCatching { classLoader.loadClass(name) }.getOrNull() ?: return@forEach
+            binder.declaredMethods.filter { it.name == "bind" }.forEach { method ->
+                xposedModule.hook(method).intercept { chain ->
+                    val result = chain.proceed()
+                    if (inKeyguardAttach.get() == true) {
+                        (chain.args.getOrNull(0) as? View)?.let(::keepHidden)
+                    }
+                    result
+                }
+            }
+        }
+    }
+
+    /** Hides [view] and hides it again whenever native code shows it. Removed on detach. */
+    private val keptHidden: MutableSet<View> =
+        java.util.Collections.newSetFromMap(java.util.WeakHashMap<View, Boolean>())
+
+    private fun keepHidden(view: View) {
+        if (!keptHidden.add(view)) return
+        val listener = object : ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
+            private var observer: ViewTreeObserver? = null
+            override fun onPreDraw(): Boolean {
+                if (view.visibility != View.GONE) view.visibility = View.GONE
+                return true
+            }
+
+            override fun onViewAttachedToWindow(v: View) {
+                if (observer == null) observer = v.viewTreeObserver.also { it.addOnPreDrawListener(this) }
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                observer?.takeIf { it.isAlive }?.removeOnPreDrawListener(this)
+                observer = null
+            }
+        }
+        view.visibility = View.GONE
+        view.addOnAttachStateChangeListener(listener)
+        if (view.isAttachedToWindow) listener.onViewAttachedToWindow(view)
+    }
+
     context(xposedModule: XposedModule)
     fun customizeLockscreenStatusBar(
         hideCarrierName: Boolean,
@@ -498,6 +562,8 @@ object StatusBar {
                     .forEach { it.visibility = View.GONE }
             }
         }
+
+        if (hideBatteryIcon) hideKeyguardBatteryView(classLoader, xposedModule)
 
         val methods = listOf(
             viewClass.getDeclaredMethod("onFinishInflate"),
