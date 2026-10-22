@@ -1,11 +1,14 @@
 package io.github.soclear.oneuix.hook
 
 import android.graphics.Color
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.ImageView
 import android.widget.Toast
 import io.github.soclear.oneuix.common.BuildConfig
 import java.lang.ref.WeakReference
@@ -132,31 +135,93 @@ internal class HomeSearchBarStyle(
     }
 
     private fun restyle(bar: View) {
-        // 1. The rounded background: recolour the launcher's own drawable, or replace anything else.
+        val layers = layers(bar)
+        val blur = layers.firstOrNull { it.javaClass.name.endsWith("QSBBlurBackground") } as? ImageView
+        // The launcher's blurred wallpaper is kept when it has an image; the colour is then drawn
+        // over it, so the bar looks like tinted frosted glass. Without it the colour fills the bar.
+        val blurred = blur != null && blur.visibility == View.VISIBLE && blur.drawable != null
+
+        // 1. The bar's own rounded background carries the colour when there is no blur.
         val current = bar.background
+        val backgroundColor = if (blurred) Color.TRANSPARENT else fill
         if (current is GradientDrawable) {
             if (prepared.add(current)) {
                 current.mutate()
-                if (fullyTransparent) current.setStroke(outlineWidth(bar), outlineColor())
+                if (fullyTransparent && !blurred) current.setStroke(outlineWidth(bar), outlineColor())
             }
-            if (current.color?.defaultColor != fill) current.setColor(fill)
+            if (current.color?.defaultColor != backgroundColor) current.setColor(backgroundColor)
         } else if (current == null || current !in prepared) {
-            bar.background = GradientDrawable().apply {
-                cornerRadius = dimension(bar, "homescreen_search_bar_bg_radius") ?: (bar.height / 2f)
-                setColor(fill)
-                if (fullyTransparent) setStroke(outlineWidth(bar), outlineColor())
-                prepared.add(this)
-            }
+            bar.background = pill(bar, backgroundColor, withStroke = fullyTransparent && !blurred)
         }
 
-        // 2. Blur and dim layers sit above the background and would cover the new fill. They are
-        // children of the widget host container, not of the bar itself, so search a few levels.
-        layers(bar).forEach { if (it.visibility != View.GONE) it.visibility = View.GONE }
+        // 2. With blur: the colour (and outline) is a foreground of the blur image, so it is drawn
+        // above the blur and below the Google widget's own icons. The dim layer would only
+        // darken the colour, so it is hidden.
+        if (blur != null) {
+            if (blurred) {
+                val overlay = overlays[blur] ?: pill(blur, fill, withStroke = fullyTransparent).also { overlays[blur] = it }
+                if (blur.foreground !== overlay) blur.foreground = overlay
+            } else if (overlays[blur] != null && blur.foreground === overlays[blur]) {
+                blur.foreground = null
+            }
+        }
+        layers.filter { it.javaClass.name.endsWith("QSBDimBackground") && it.visibility != View.GONE }
+            .forEach { it.visibility = View.GONE }
 
         // 3. Real-time blur, drawn behind the whole view by the window compositor.
         val get = getBlur
         val set = setBlur
         if (get != null && set != null && get.invoke(bar) != null) set.invoke(bar, null as Any?)
+
+        // 4. Microphone and Lens icons follow the colour: dark on a light bar. The Google logo
+        // (left side) keeps its own colours.
+        tintIcons(bar)
+    }
+
+    private fun pill(view: View, color: Int, withStroke: Boolean): GradientDrawable =
+        GradientDrawable().apply {
+            cornerRadius = dimension(view, "homescreen_search_bar_bg_radius") ?: (view.height / 2f)
+            setColor(color)
+            if (withStroke) setStroke(outlineWidth(view), outlineColor())
+            prepared.add(this)
+        }
+
+    private val overlays = WeakHashMap<View, GradientDrawable>()
+    private val darkIcons = PorterDuffColorFilter(0xFF202124.toInt(), PorterDuff.Mode.SRC_IN)
+
+    /** A light, mostly opaque bar needs dark icons; anything else keeps the launcher's own. */
+    private val lightBar = gray >= 128 && Color.alpha(fill) >= 128
+
+    private fun tintIcons(bar: View) {
+        val host = findByName(bar, "QSBAppWidgetHostView", 0) ?: return
+        val barLocation = IntArray(2)
+        bar.getLocationInWindow(barLocation)
+        val location = IntArray(2)
+        fun walk(view: View, depth: Int) {
+            if (view is ImageView) {
+                view.getLocationInWindow(location)
+                val centerX = location[0] - barLocation[0] + view.width / 2
+                if (centerX > bar.width / 2) {
+                    if (lightBar) {
+                        if (view.colorFilter !== darkIcons) view.colorFilter = darkIcons
+                    } else if (view.colorFilter === darkIcons) {
+                        view.clearColorFilter()
+                    }
+                }
+            } else if (view is ViewGroup && depth < 6) {
+                for (index in 0 until view.childCount) walk(view.getChildAt(index), depth + 1)
+            }
+        }
+        walk(host, 0)
+    }
+
+    private fun findByName(root: View, suffix: String, depth: Int): View? {
+        if (root.javaClass.name.endsWith(suffix)) return root
+        if (root !is ViewGroup || depth > 4) return null
+        for (index in 0 until root.childCount) {
+            findByName(root.getChildAt(index), suffix, depth + 1)?.let { return it }
+        }
+        return null
     }
 
     private fun layers(root: View): List<View> {
