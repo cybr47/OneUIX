@@ -60,6 +60,26 @@ internal class HomeSearchBarStyle(
         if (tracked.add(bar)) Bar(bar)
     }
 
+    /**
+     * Finds HomeSearchBar in a window's view tree. Some launcher methods are never reached by
+     * hooks (the runtime can inline them), so this runs from a hook known to fire (the Launcher
+     * activity resuming) and does not depend on any HomeSearchBar method being called.
+     */
+    fun discover(root: View): String? {
+        val related = mutableListOf<String>()
+        fun walk(view: View) {
+            val name = view.javaClass.name
+            if (name.endsWith(".HomeSearchBar")) track(view)
+            if (BuildConfig.DEBUG && related.size < 14 && (name.contains("QSB") || name.contains("SearchBar"))) {
+                related += name.substringAfterLast('.') + " " + view.width + "x" + view.height +
+                    " v=" + view.visibility + " attached=" + view.isAttachedToWindow
+            }
+            if (view is ViewGroup) for (index in 0 until view.childCount) walk(view.getChildAt(index))
+        }
+        walk(root)
+        return if (BuildConfig.DEBUG) related.joinToString("\n").ifEmpty { "no QSB views in this window" } else null
+    }
+
     private inner class Bar(view: View) : ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
         private val view = WeakReference(view)
         private var observer: ViewTreeObserver? = null

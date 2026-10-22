@@ -454,21 +454,31 @@ object Launcher {
             xlog(t)
         }
 
-        // Debug builds only: one toast per launcher start saying whether the hook is active.
-        if (io.github.soclear.oneuix.common.BuildConfig.DEBUG) runCatching {
+        // The search bar is also found by searching the launcher's view tree each time the
+        // launcher resumes. Debug builds toast the result once per launcher start.
+        runCatching {
             val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
             var shown = false
             xposedModule.hook(activity.getDeclaredMethod("onResume")).intercept { chain ->
                 val result = chain.proceed()
                 val root = (chain.thisObject as? Activity)?.window?.decorView
-                if (!shown && root != null) {
-                    shown = true
-                    root.postDelayed({
-                        val text = "OneUIX search bar hook active, bars seen: " + style.barsTracked +
-                            "\n" + style.facts.joinToString("\n")
-                        xlog(text, priority = Log.INFO)
-                        android.widget.Toast.makeText(root.context, text, android.widget.Toast.LENGTH_LONG).show()
-                    }, 4000)
+                if (root != null) {
+                    listOf(300L, 2000L, 5000L).forEach { delay ->
+                        root.postDelayed({
+                            try {
+                                val found = style.discover(root)
+                                if (found != null && !shown && delay == 5000L) {
+                                    shown = true
+                                    val text = "OneUIX search bar hook active, bars seen: " + style.barsTracked +
+                                        "\n" + style.facts.joinToString("\n") + "\n" + found
+                                    xlog(text, priority = Log.INFO)
+                                    android.widget.Toast.makeText(root.context, text, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            } catch (t: Throwable) {
+                                xlog(t)
+                            }
+                        }, delay)
+                    }
                 }
                 result
             }
