@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -556,6 +557,64 @@ fun DetailPaneSystemUI(
             }
         )
 
+        Column(modifier = Modifier.animateContentSize()) {
+            var expanded by rememberSaveable { mutableStateOf(false) }
+            ListItem(
+                headlineContent = {
+                    Text(text = stringResource(id = R.string.customizeLockscreenStatusBar_title))
+                },
+                supportingContent = {
+                    Text(text = stringResource(id = R.string.customizeLockscreenStatusBar_summary))
+                },
+                leadingContent = {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = R.drawable.mobile_screensaver),
+                        contentDescription = null
+                    )
+                },
+                trailingContent = {
+                    Text(text = if (expanded) "−" else "+")
+                },
+                modifier = Modifier.clickable { expanded = !expanded }
+            )
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(start = 16.dp)) {
+                    SwitchItem(
+                        icon = ImageVector.vectorResource(id = R.drawable.mobile_screensaver),
+                        title = stringResource(id = R.string.hideLockscreenCarrierName_title),
+                        checked = uiState.statusBar.hideLockscreenCarrierName,
+                        onCheckedChange = {
+                            onEvent(SystemUIEvent.StatusBar.HideLockscreenCarrierName(it))
+                        }
+                    )
+                    SwitchItem(
+                        icon = ImageVector.vectorResource(id = R.drawable.notifications),
+                        title = stringResource(id = R.string.hideLockscreenNotificationIcons_title),
+                        checked = uiState.statusBar.hideLockscreenNotificationIcons,
+                        onCheckedChange = {
+                            onEvent(SystemUIEvent.StatusBar.HideLockscreenNotificationIcons(it))
+                        }
+                    )
+                    SwitchItem(
+                        icon = ImageVector.vectorResource(id = R.drawable.five_g),
+                        title = stringResource(id = R.string.hideLockscreenConnectivityIcons_title),
+                        checked = uiState.statusBar.hideLockscreenConnectivityIcons,
+                        onCheckedChange = {
+                            onEvent(SystemUIEvent.StatusBar.HideLockscreenConnectivityIcons(it))
+                        }
+                    )
+                    SwitchItem(
+                        icon = ImageVector.vectorResource(id = R.drawable.battery),
+                        title = stringResource(id = R.string.hideLockscreenBatteryIcon_title),
+                        checked = uiState.statusBar.hideLockscreenBatteryIcon,
+                        onCheckedChange = {
+                            onEvent(SystemUIEvent.StatusBar.HideLockscreenBatteryIcon(it))
+                        }
+                    )
+                }
+            }
+        }
+
         DividerText(R.string.qs)
         SwitchItem(
             icon = ImageVector.vectorResource(id = R.drawable.format_letter_spacing),
@@ -1093,6 +1152,18 @@ sealed interface SystemUIEvent {
 
         @JvmInline
         value class HideLockscreenStatusBar(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideLockscreenCarrierName(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideLockscreenNotificationIcons(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideLockscreenConnectivityIcons(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class HideLockscreenBatteryIcon(val value: Boolean) : StatusBar
     }
 
     sealed interface QS : SystemUIEvent {
@@ -1285,6 +1356,38 @@ private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
                     )
                 )
             }
+
+            is SystemUIEvent.StatusBar.HideLockscreenCarrierName -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    statusBar = preference.systemUI.statusBar.copy(
+                        hideLockscreenCarrierName = event.value
+                    )
+                )
+            )
+
+            is SystemUIEvent.StatusBar.HideLockscreenNotificationIcons -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    statusBar = preference.systemUI.statusBar.copy(
+                        hideLockscreenNotificationIcons = event.value
+                    )
+                )
+            )
+
+            is SystemUIEvent.StatusBar.HideLockscreenConnectivityIcons -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    statusBar = preference.systemUI.statusBar.copy(
+                        hideLockscreenConnectivityIcons = event.value
+                    )
+                )
+            )
+
+            is SystemUIEvent.StatusBar.HideLockscreenBatteryIcon -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    statusBar = preference.systemUI.statusBar.copy(
+                        hideLockscreenBatteryIcon = event.value
+                    )
+                )
+            )
 
             is SystemUIEvent.StatusBar.SetBatteryIconHeightScale -> {
                 preference.copy(
