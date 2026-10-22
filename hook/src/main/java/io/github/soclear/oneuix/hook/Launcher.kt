@@ -438,57 +438,23 @@ object Launcher {
             dump = { xlog(it, priority = Log.INFO) },
             report = { xlog(it) },
         )
-        val pkg = "com.honeyspace.ui.common.qsb."
+        // HomeSearchBar paints the pill behind the Google search widget. It is found when it
+        // attaches to a window: unlike a constructor or a small internal method, that framework
+        // call is not inlined away.
         try {
-            val bar = param.classLoader.loadClass(pkg + "HomeSearchBar")
-            style.facts += "HomeSearchBar class found"
-            val drawableClass = Class.forName("android.graphics.drawable.Drawable")
-
-            // The launcher sets its rounded outline drawable here: recolour it on the way in.
-            xposedModule.hook(bar.getDeclaredMethod("setBackground", drawableClass)).intercept { chain ->
-                val view = chain.thisObject as? View
-                val original = chain.args.getOrNull(0) as? Drawable
-                if (view == null || original == null) {
-                    chain.proceed()
-                } else {
-                    chain.proceed(arrayOf(style.background(view, original)))
-                }
+            val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.HomeSearchBar")
+            xposedModule.hook(bar.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
+                val result = chain.proceed()
+                (chain.thisObject as? View)?.let(style::track)
+                result
             }
-
-            // The Google search widget draws its own pill: restyle the widget's views.
-            param.classLoader.loadClass(pkg + "WidgetSearchBar").declaredConstructors.forEach { constructor ->
-                xposedModule.hook(constructor).intercept { chain ->
-                    val result = chain.proceed()
-                    (chain.thisObject as? View)?.let(style::trackWidgetBar)
-                    result
-                }
-            }
-
-            // Real-time blur would be drawn over the fill.
-            bar.declaredMethods.firstOrNull { it.name == "applyRealtimeBlur" }?.let { method ->
-                xposedModule.hook(method).intercept { null }
-            }
-
-            // Captured-blur and dim layers are switched back on by the launcher: hide them again.
-            mapOf(
-                "QSBBlurBackground" to listOf("setImageBitmap", "updateVisibility", "onConfigurationChanged"),
-                "QSBDimBackground" to listOf("updateVisibility", "updateColor"),
-            ).forEach { (name, methods) ->
-                val layer = param.classLoader.loadClass(pkg + name)
-                layer.declaredMethods.filter { it.name in methods }.forEach { method ->
-                    xposedModule.hook(method).intercept { chain ->
-                        val result = chain.proceed()
-                        (chain.thisObject as? View)?.let(style::hideLayer)
-                        result
-                    }
-                }
-            }
+            style.facts += "hooked HomeSearchBar.onAttachedToWindow"
         } catch (t: Throwable) {
             style.facts += "hook failed: ${t.javaClass.simpleName} ${t.message}"
             xlog(t)
         }
 
-        // Debug builds only: one toast per launcher start saying whether the hooks are active.
+        // Debug builds only: one toast per launcher start saying whether the hook is active.
         if (io.github.soclear.oneuix.common.BuildConfig.DEBUG) runCatching {
             val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
             var shown = false
@@ -498,8 +464,8 @@ object Launcher {
                 if (!shown && root != null) {
                     shown = true
                     root.postDelayed({
-                        val text = "OneUIX search bar hook active\ncolor/alpha fill set, widget bars seen: " +
-                            style.widgetBarsTracked + "\n" + style.facts.joinToString("\n")
+                        val text = "OneUIX search bar hook active, bars seen: " + style.barsTracked +
+                            "\n" + style.facts.joinToString("\n")
                         xlog(text, priority = Log.INFO)
                         android.widget.Toast.makeText(root.context, text, android.widget.Toast.LENGTH_LONG).show()
                     }, 4000)
