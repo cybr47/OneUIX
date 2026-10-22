@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.util.AttributeSet
@@ -420,6 +421,25 @@ object Launcher {
                 }
                 hide()
                 button.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hide() }
+                result
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+    }
+
+    context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
+    fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
+        if (param.packageName != Package.LAUNCHER) return
+        val style = HomeSearchBarStyle(colorLevel, transparency)
+        // WidgetSearchBar hosts the Google search widget and paints the pill with its own blur and
+        // dim layers. It is found when it attaches to a window: unlike a constructor or a small
+        // internal method, that framework call is not inlined away.
+        try {
+            val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.WidgetSearchBar")
+            xposedModule.hook(bar.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
+                val result = chain.proceed()
+                (chain.thisObject as? View)?.let(style::track)
                 result
             }
         } catch (t: Throwable) {
