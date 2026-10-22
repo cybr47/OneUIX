@@ -160,7 +160,8 @@ class Main : XposedModule() {
                 if (preference.other.hideAppsSearchBar) {
                     Launcher.hideAppsSearchBar()
                 }
-                if (preference.other.searchBarColorsEnabled) {
+                Launcher.debugDump()
+            if (preference.other.searchBarColorsEnabled) {
                     Launcher.modifyHomeSearchBar(
                         colorLevel = preference.other.searchBarColorLevel,
                         transparency = preference.other.searchBarBackgroundTransparency

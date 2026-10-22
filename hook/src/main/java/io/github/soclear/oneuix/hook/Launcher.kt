@@ -465,6 +465,38 @@ object Launcher {
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
+    fun debugDump() {
+        if (param.packageName != Package.LAUNCHER) return
+        try {
+            val m = android.app.Activity::class.java.getDeclaredMethod("onResume")
+            xposedModule.hook(m).intercept { chain ->
+                val r = chain.proceed()
+                val act = chain.thisObject as android.app.Activity
+                val root = act.window.decorView
+                root.postDelayed({
+                    runCatching {
+                        val sb = StringBuilder()
+                        fun walk(v: View, d: Int, path: String) {
+                            val n = v.javaClass.name
+                            val p2 = path + "/" + n.substringAfterLast('.')
+                            if (n.contains("QSB") || n.contains("SearchBar") || n.contains("WidgetHost") || n.contains("Finder")) {
+                                val line = "$p2 ${v.width}x${v.height} vis=${v.visibility} cl=${v.javaClass.classLoader} bg=${v.background?.javaClass?.simpleName}"
+                                android.util.Log.i("OneUIXDbg", line)
+                                if (sb.length < 600) sb.append(n.substringAfterLast('.')).append(' ').append(v.width).append('x').append(v.height).append(" v").append(v.visibility).append('\n')
+                            }
+                            if (v is android.view.ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i), d + 1, p2)
+                        }
+                        android.util.Log.i("OneUIXDbg", "activity=" + act.javaClass.name)
+                        walk(root, 0, "")
+                        android.widget.Toast.makeText(act, "DBG\n" + sb, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }, 4000)
+                r
+            }
+        } catch (t: Throwable) { xlog(t) }
+    }
+
+    context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
     fun hideAppsSearchBar() {
         try {
             xposedModule.hook(
