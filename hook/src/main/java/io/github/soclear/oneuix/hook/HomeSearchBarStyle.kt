@@ -9,8 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.ImageView
-import android.widget.Toast
-import io.github.soclear.oneuix.common.BuildConfig
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
 import java.util.Collections
@@ -21,24 +19,18 @@ import kotlin.math.roundToInt
 /**
  * Fill colour, transparency and outline of One UI Home's Google search bar.
  *
- * From the launcher's log and a dump of its view tree: with the Google search widget the widget is
- * transparent (QSBWidgetInfo backgroundColor unset, blur mode SAMSUNG_UX) and `WidgetSearchBar`
- * paints the pill itself with its own children: a blurred wallpaper image (QSBBlurBackground) and
- * a dim layer (QSBDimBackground) next to the widget host. (`HomeSearchBar`, the Samsung finder
- * bar, is hidden in this setup.) The Google logo, microphone and
- * Lens icons are the widget's own views and are never touched.
+ * With the Google search widget the widget itself is transparent and `WidgetSearchBar` paints the
+ * pill: a rounded background plus, inside the widget host container, a blurred wallpaper image
+ * (QSBBlurBackground) and a dim layer (QSBDimBackground). The Google logo, microphone and Lens
+ * icons are the widget's own views.
  *
- * HomeSearchBar is found when it attaches to a window (a framework call, so the hook is reliable;
- * constructor and small private methods can be inlined by the runtime and silently skipped). Its
- * state is then checked before each draw, because the launcher re-applies its own look, and only
- * written when it differs. The view's alpha is never changed.
+ * The bar is found when it attaches to a window and its state is checked before each draw, because
+ * the launcher re-applies its own look; values are only written when they differ. The view's alpha
+ * is never changed. The launcher's blur is kept: the colour is drawn over it as a foreground of the
+ * blur image, so the bar looks like tinted frosted glass. Without a blur image the colour fills the
+ * bar's background.
  */
-internal class HomeSearchBarStyle(
-    colorLevel: Float,
-    transparency: Float,
-    private val dump: (String) -> Unit = {},
-    private val report: (Throwable) -> Unit = {},
-) {
+internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
     private val fill: Int
     private val fullyTransparent = transparency >= 0.99f
     private val gray: Int
@@ -52,11 +44,14 @@ internal class HomeSearchBarStyle(
     // Identity only: a value referring to the view or drawable would keep it alive forever.
     private val tracked = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val prepared = Collections.newSetFromMap(WeakHashMap<Drawable, Boolean>())
+    private val overlays = WeakHashMap<View, GradientDrawable>()
 
-    /** Debug builds only: facts shown by the launcher toast. */
-    val facts = mutableListOf<String>()
-    val barsTracked: Int get() = tracked.size
+    private val darkIcons = PorterDuffColorFilter(0xFF202124.toInt(), PorterDuff.Mode.SRC_IN)
 
+    /** A light, mostly opaque bar needs dark icons; anything else keeps the launcher's own. */
+    private val lightBar = gray >= 128 && Color.alpha(fill) >= 128
+
+    // Samsung's real-time blur accessors on View (hidden API); absent on other firmware.
     private val getBlur: Method? by lazy { semMethod("semGetBlurInfo", 0) }
     private val setBlur: Method? by lazy { semMethod("semSetBlurInfo", 1) }
 
@@ -64,32 +59,9 @@ internal class HomeSearchBarStyle(
         if (tracked.add(bar)) Bar(bar)
     }
 
-    /**
-     * Finds HomeSearchBar in a window's view tree. Some launcher methods are never reached by
-     * hooks (the runtime can inline them), so this runs from a hook known to fire (the Launcher
-     * activity resuming) and does not depend on any HomeSearchBar method being called.
-     */
-    fun discover(root: View): String? {
-        val related = mutableListOf<String>()
-        fun walk(view: View) {
-            val name = view.javaClass.name
-            if (name.endsWith(".WidgetSearchBar")) track(view)
-            if (BuildConfig.DEBUG && related.size < 14 && (name.contains("QSB") || name.contains("SearchBar"))) {
-                related += name.substringAfterLast('.') + " " + view.width + "x" + view.height +
-                    " v=" + view.visibility + " attached=" + view.isAttachedToWindow
-            }
-            if (view is ViewGroup) for (index in 0 until view.childCount) walk(view.getChildAt(index))
-        }
-        walk(root)
-        return if (BuildConfig.DEBUG) related.joinToString("\n").ifEmpty { "no QSB views in this window" } else null
-    }
-
     private inner class Bar(view: View) : ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
         private val view = WeakReference(view)
         private var observer: ViewTreeObserver? = null
-        private var summaryScheduled = false
-        private var reported = false
-        var draws = 0
 
         init {
             view.addOnAttachStateChangeListener(this)
@@ -107,29 +79,7 @@ internal class HomeSearchBarStyle(
 
         override fun onPreDraw(): Boolean {
             val bar = view.get() ?: return true
-            if (bar.width <= 0 || bar.height <= 0) return true
-            draws++
-            try {
-                restyle(bar)
-                if (BuildConfig.DEBUG && !summaryScheduled) {
-                    summaryScheduled = true
-                    bar.postDelayed({
-                        // Show the state the launcher left, then restyle by hand and show it again:
-                        // this separates "the listener is not running" from "the change is undone".
-                        val before = state(bar)
-                        restyle(bar)
-                        val text = "OneUIX search bar debug, fill=#%08x draws=%d\nbefore: %s\nafter: %s"
-                            .format(fill, draws, before, state(bar))
-                        dump(text + "\n" + describe(bar))
-                        Toast.makeText(bar.context, text, Toast.LENGTH_LONG).show()
-                    }, 2500)
-                }
-            } catch (t: Throwable) {
-                if (!reported) {
-                    reported = true
-                    report(t)
-                }
-            }
+            if (bar.width > 0 && bar.height > 0) runCatching { restyle(bar) }
             return true
         }
     }
@@ -138,7 +88,7 @@ internal class HomeSearchBarStyle(
         val layers = layers(bar)
         val blur = layers.firstOrNull { it.javaClass.name.endsWith("QSBBlurBackground") } as? ImageView
         // The launcher's blurred wallpaper is kept when it has an image; the colour is then drawn
-        // over it, so the bar looks like tinted frosted glass. Without it the colour fills the bar.
+        // over it. Without it the colour fills the bar.
         val blurred = blur != null && blur.visibility == View.VISIBLE && blur.drawable != null
 
         // 1. The bar's own rounded background carries the colour when there is no blur.
@@ -154,9 +104,9 @@ internal class HomeSearchBarStyle(
             bar.background = pill(bar, backgroundColor, withStroke = fullyTransparent && !blurred)
         }
 
-        // 2. With blur: the colour (and outline) is a foreground of the blur image, so it is drawn
-        // above the blur and below the Google widget's own icons. The dim layer would only
-        // darken the colour, so it is hidden.
+        // 2. With blur, the colour (and outline) is a foreground of the blur image: drawn above
+        // the blur and below the Google widget's own icons. The dim layer would only muddy the
+        // colour, so it is hidden.
         if (blur != null) {
             if (blurred) {
                 val overlay = overlays[blur] ?: pill(blur, fill, withStroke = fullyTransparent).also { overlays[blur] = it }
@@ -173,8 +123,8 @@ internal class HomeSearchBarStyle(
         val set = setBlur
         if (get != null && set != null && get.invoke(bar) != null) set.invoke(bar, null as Any?)
 
-        // 4. Microphone and Lens icons follow the colour: dark on a light bar. The Google logo
-        // (left side) keeps its own colours.
+        // 4. Microphone and Lens icons (right half of the widget) follow the colour: dark on a
+        // light bar. The Google logo on the left keeps its own colours.
         tintIcons(bar)
     }
 
@@ -185,12 +135,6 @@ internal class HomeSearchBarStyle(
             if (withStroke) setStroke(outlineWidth(view), outlineColor())
             prepared.add(this)
         }
-
-    private val overlays = WeakHashMap<View, GradientDrawable>()
-    private val darkIcons = PorterDuffColorFilter(0xFF202124.toInt(), PorterDuff.Mode.SRC_IN)
-
-    /** A light, mostly opaque bar needs dark icons; anything else keeps the launcher's own. */
-    private val lightBar = gray >= 128 && Color.alpha(fill) >= 128
 
     private fun tintIcons(bar: View) {
         val host = findByName(bar, "QSBAppWidgetHostView", 0) ?: return
@@ -215,15 +159,7 @@ internal class HomeSearchBarStyle(
         walk(host, 0)
     }
 
-    private fun findByName(root: View, suffix: String, depth: Int): View? {
-        if (root.javaClass.name.endsWith(suffix)) return root
-        if (root !is ViewGroup || depth > 4) return null
-        for (index in 0 until root.childCount) {
-            findByName(root.getChildAt(index), suffix, depth + 1)?.let { return it }
-        }
-        return null
-    }
-
+    /** The blur and dim layers live a few levels down, next to the widget host view. */
     private fun layers(root: View): List<View> {
         val found = mutableListOf<View>()
         fun walk(view: View, depth: Int) {
@@ -237,6 +173,15 @@ internal class HomeSearchBarStyle(
         }
         walk(root, 0)
         return found
+    }
+
+    private fun findByName(root: View, suffix: String, depth: Int): View? {
+        if (root.javaClass.name.endsWith(suffix)) return root
+        if (root !is ViewGroup || depth > 4) return null
+        for (index in 0 until root.childCount) {
+            findByName(root.getChildAt(index), suffix, depth + 1)?.let { return it }
+        }
+        return null
     }
 
     private fun semMethod(name: String, parameters: Int): Method? =
@@ -253,28 +198,5 @@ internal class HomeSearchBarStyle(
     private fun dimension(view: View, name: String): Float? {
         val id = view.resources.getIdentifier(name, "dimen", view.context.packageName)
         return if (id == 0) null else runCatching { view.resources.getDimension(id) }.getOrNull()
-    }
-
-    /** Debug builds only: the properties this class changes. */
-    private fun state(bar: View): String {
-        val color = (bar.background as? GradientDrawable)?.color?.defaultColor
-        val layers = layers(bar).joinToString(" ") { it.javaClass.simpleName.removePrefix("QSB").take(4) + "=" + it.visibility }
-        return "bg=" + (color?.let { "#%08x".format(it) } ?: bar.background?.javaClass?.simpleName) + " " + layers
-    }
-
-    /** Debug builds only. */
-    private fun describe(bar: View): String {
-        val lines = mutableListOf<String>()
-        val blur = runCatching { getBlur?.invoke(bar) != null }.getOrDefault(false)
-        lines += "bars=$barsTracked blurInfo=$blur sem=${getBlur != null}/${setBlur != null}"
-        fun walk(view: View, depth: Int) {
-            if (lines.size >= 16) return
-            lines += "  ".repeat(depth) + view.javaClass.simpleName + " " + view.width + "x" + view.height +
-                " v=" + view.visibility + " bg=" + (view.background?.javaClass?.simpleName ?: "-")
-            if (view is ViewGroup && depth < 2) for (i in 0 until view.childCount) walk(view.getChildAt(i), depth + 1)
-        }
-        (bar.parent as? View)?.let { lines += "parent " + it.javaClass.simpleName + " " + it.width + "x" + it.height }
-        walk(bar, 0)
-        return lines.joinToString("\n")
     }
 }

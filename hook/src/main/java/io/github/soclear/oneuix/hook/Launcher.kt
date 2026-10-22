@@ -12,7 +12,6 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -432,16 +431,10 @@ object Launcher {
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
     fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
         if (param.packageName != Package.LAUNCHER) return
-        val style = HomeSearchBarStyle(
-            colorLevel = colorLevel,
-            transparency = transparency,
-            dump = { xlog(it, priority = Log.INFO) },
-            report = { xlog(it) },
-        )
-        // WidgetSearchBar (which hosts the Google search widget) paints the pill with its own
-        // blur and dim layers. It is found when it
-        // attaches to a window: unlike a constructor or a small internal method, that framework
-        // call is not inlined away.
+        val style = HomeSearchBarStyle(colorLevel, transparency)
+        // WidgetSearchBar hosts the Google search widget and paints the pill with its own blur and
+        // dim layers. It is found when it attaches to a window: unlike a constructor or a small
+        // internal method, that framework call is not inlined away.
         try {
             val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.WidgetSearchBar")
             xposedModule.hook(bar.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
@@ -449,41 +442,9 @@ object Launcher {
                 (chain.thisObject as? View)?.let(style::track)
                 result
             }
-            style.facts += "hooked WidgetSearchBar.onAttachedToWindow"
         } catch (t: Throwable) {
-            style.facts += "hook failed: ${t.javaClass.simpleName} ${t.message}"
             xlog(t)
         }
-
-        // The search bar is also found by searching the launcher's view tree each time the
-        // launcher resumes. Debug builds toast the result once per launcher start.
-        runCatching {
-            val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
-            var shown = false
-            xposedModule.hook(activity.getDeclaredMethod("onResume")).intercept { chain ->
-                val result = chain.proceed()
-                val root = (chain.thisObject as? Activity)?.window?.decorView
-                if (root != null) {
-                    listOf(300L, 2000L, 5000L).forEach { delay ->
-                        root.postDelayed({
-                            try {
-                                val found = style.discover(root)
-                                if (found != null && !shown && delay == 5000L) {
-                                    shown = true
-                                    val text = "OneUIX search bar hook active, bars seen: " + style.barsTracked +
-                                        "\n" + style.facts.joinToString("\n") + "\n" + found
-                                    xlog(text, priority = Log.INFO)
-                                    android.widget.Toast.makeText(root.context, text, android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            } catch (t: Throwable) {
-                                xlog(t)
-                            }
-                        }, delay)
-                    }
-                }
-                result
-            }
-        }.onFailure { xlog(it) }
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)

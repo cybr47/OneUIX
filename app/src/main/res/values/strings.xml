@@ -162,6 +162,7 @@
     <string name="setCustomCarrierName_title">Set custom carrier name</string>
     <string name="hideLockscreenStatusBar_title">Hide status bar on lock screen</string>
     <string name="hideAppsSearchBar_title">Hide search bar on app screen</string>
+    <string name="restartOneUIHome">Restart OneUI Home</string>
     <string name="searchBarColors_title">Search bar colors</string>
     <string name="searchBarColors_summary">Adjust the home-screen Google search bar background. Force stop One UI Home after changing.</string>
     <string name="searchBarColor_title">Background color (black to white)</string>
