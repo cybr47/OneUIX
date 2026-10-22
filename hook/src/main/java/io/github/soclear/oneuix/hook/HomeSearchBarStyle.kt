@@ -99,7 +99,10 @@ internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
         val blur = layers.firstOrNull { it.javaClass.name.endsWith("QSBBlurBackground") } as? ImageView
         // The launcher's blurred wallpaper is kept when it has an image; the colour is then drawn
         // over it. Without it the colour fills the bar.
-        val blurred = blur != null && blur.visibility == View.VISIBLE && blur.drawable != null
+        // The launcher blurs either with a captured image or, in some layouts (HomeUp's DIY home
+        // screen), with a real-time blur set on the blur layer itself.
+        val blurred = blur != null && blur.visibility == View.VISIBLE &&
+            (blur.drawable != null || hasRealtimeBlur(blur))
 
         // 1. The bar's own rounded background carries the colour when there is no blur.
         val current = bar.background
@@ -128,7 +131,8 @@ internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
         layers.filter { it.javaClass.name.endsWith("QSBDimBackground") && it.visibility != View.GONE }
             .forEach { it.visibility = View.GONE }
 
-        // 3. Real-time blur, drawn behind the whole view by the window compositor.
+        // 3. Real-time blur set on the bar itself would hide the colour: removed. The blur layer's
+        // own real-time blur is kept, with the colour drawn over it.
         val get = getBlur
         val set = setBlur
         if (get != null && set != null && get.invoke(bar) != null) set.invoke(bar, null as Any?)
@@ -137,6 +141,9 @@ internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
         // light bar. The Google logo on the left keeps its own colours.
         tintIcons(bar)
     }
+
+    private fun hasRealtimeBlur(view: View): Boolean =
+        runCatching { getBlur?.invoke(view) != null }.getOrDefault(false)
 
     private fun pill(view: View, color: Int, withStroke: Boolean): GradientDrawable =
         GradientDrawable().apply {
