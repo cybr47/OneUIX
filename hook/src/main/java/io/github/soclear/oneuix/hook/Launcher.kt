@@ -462,6 +462,23 @@ object Launcher {
         } catch (t: Throwable) {
             xlog(t)
         }
+        // The bar is also searched for in the launcher's view tree each time the launcher resumes:
+        // this finds it even when no hook on it fires.
+        try {
+            val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
+            xposedModule.hook(activity.getDeclaredMethod("onResume")).intercept { chain ->
+                val result = chain.proceed()
+                val root = (chain.thisObject as? android.app.Activity)?.window?.decorView
+                if (root != null) {
+                    listOf(300L, 2000L, 5000L, 10000L).forEach { delay ->
+                        root.postDelayed({ runCatching { style.discover(root) } }, delay)
+                    }
+                }
+                result
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)

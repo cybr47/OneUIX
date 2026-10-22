@@ -59,6 +59,20 @@ internal class HomeSearchBarStyle(colorLevel: Float, transparency: Float) {
         if (tracked.add(bar)) Bar(bar)
     }
 
+    /**
+     * Finds bars in a window's view tree. Run when the launcher resumes, it does not depend on any
+     * method of the bar being reached by a hook.
+     */
+    fun discover(root: View) {
+        fun walk(view: View) {
+            val name = view.javaClass.name
+            if (name.endsWith(".WidgetSearchBar")) track(view)
+            else if (name.endsWith(".QSBHostViewContainer")) trackStandalone(view)
+            if (view is ViewGroup) for (index in 0 until view.childCount) walk(view.getChildAt(index))
+        }
+        walk(root)
+    }
+
     /** The widget container, when it is not inside a WidgetSearchBar that is styled already. */
     fun trackStandalone(container: View) {
         var parent = container.parent
