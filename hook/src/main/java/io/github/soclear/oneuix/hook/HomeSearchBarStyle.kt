@@ -80,6 +80,10 @@ internal class HomeSearchBarStyle(
     private val tracked = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private val prepared = Collections.newSetFromMap(WeakHashMap<Drawable, Boolean>())
 
+    /** Debug builds only: facts about hook installation, shown by the launcher toast. */
+    val facts = mutableListOf<String>()
+    val widgetBarsTracked: Int get() = tracked.size
+
     fun trackWidgetBar(bar: View) {
         if (tracked.add(bar)) WidgetBar(bar)
     }

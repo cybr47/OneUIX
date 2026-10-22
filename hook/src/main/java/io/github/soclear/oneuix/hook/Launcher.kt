@@ -441,6 +441,7 @@ object Launcher {
         val pkg = "com.honeyspace.ui.common.qsb."
         try {
             val bar = param.classLoader.loadClass(pkg + "HomeSearchBar")
+            style.facts += "HomeSearchBar class found"
             val drawableClass = Class.forName("android.graphics.drawable.Drawable")
 
             // The launcher sets its rounded outline drawable here: recolour it on the way in.
@@ -483,8 +484,29 @@ object Launcher {
                 }
             }
         } catch (t: Throwable) {
+            style.facts += "hook failed: ${t.javaClass.simpleName} ${t.message}"
             xlog(t)
         }
+
+        // Debug builds only: one toast per launcher start saying whether the hooks are active.
+        if (io.github.soclear.oneuix.common.BuildConfig.DEBUG) runCatching {
+            val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
+            var shown = false
+            xposedModule.hook(activity.getDeclaredMethod("onResume")).intercept { chain ->
+                val result = chain.proceed()
+                val root = (chain.thisObject as? Activity)?.window?.decorView
+                if (!shown && root != null) {
+                    shown = true
+                    root.postDelayed({
+                        val text = "OneUIX search bar hook active\ncolor/alpha fill set, widget bars seen: " +
+                            style.widgetBarsTracked + "\n" + style.facts.joinToString("\n")
+                        xlog(text, priority = Log.INFO)
+                        android.widget.Toast.makeText(root.context, text, android.widget.Toast.LENGTH_LONG).show()
+                    }, 4000)
+                }
+                result
+            }
+        }.onFailure { xlog(it) }
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
