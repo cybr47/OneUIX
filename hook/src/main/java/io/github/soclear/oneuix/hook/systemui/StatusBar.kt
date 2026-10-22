@@ -686,7 +686,7 @@ object StatusBar {
                     result
                 }
             } else {
-                xlog("Lockscreen battery host ID battery_meter_composable_view was not found")
+                if (BuildConfig.DEBUG) xlog("Lockscreen battery host ID battery_meter_composable_view was not found")
             }
         }.onFailure { xlog(it) }
 
