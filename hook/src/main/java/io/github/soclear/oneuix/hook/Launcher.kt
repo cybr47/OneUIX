@@ -438,17 +438,18 @@ object Launcher {
             dump = { xlog(it, priority = Log.INFO) },
             report = { xlog(it) },
         )
-        // HomeSearchBar paints the pill behind the Google search widget. It is found when it
+        // WidgetSearchBar (which hosts the Google search widget) paints the pill with its own
+        // blur and dim layers. It is found when it
         // attaches to a window: unlike a constructor or a small internal method, that framework
         // call is not inlined away.
         try {
-            val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.HomeSearchBar")
+            val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.WidgetSearchBar")
             xposedModule.hook(bar.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
                 val result = chain.proceed()
                 (chain.thisObject as? View)?.let(style::track)
                 result
             }
-            style.facts += "hooked HomeSearchBar.onAttachedToWindow"
+            style.facts += "hooked WidgetSearchBar.onAttachedToWindow"
         } catch (t: Throwable) {
             style.facts += "hook failed: ${t.javaClass.simpleName} ${t.message}"
             xlog(t)

@@ -18,10 +18,11 @@ import kotlin.math.roundToInt
 /**
  * Fill colour, transparency and outline of One UI Home's Google search bar.
  *
- * From the launcher's own log: with the Google search widget (WidgetSearchBar) the widget is
- * transparent (QSBWidgetInfo backgroundColor unset, blur mode SAMSUNG_UX) and `HomeSearchBar`
- * paints the pill: a rounded outline background, a blurred wallpaper image (QSBBlurBackground), a
- * dim layer (QSBDimBackground) and optionally a real-time blur. The Google logo, microphone and
+ * From the launcher's log and a dump of its view tree: with the Google search widget the widget is
+ * transparent (QSBWidgetInfo backgroundColor unset, blur mode SAMSUNG_UX) and `WidgetSearchBar`
+ * paints the pill itself with its own children: a blurred wallpaper image (QSBBlurBackground) and
+ * a dim layer (QSBDimBackground) next to the widget host. (`HomeSearchBar`, the Samsung finder
+ * bar, is hidden in this setup.) The Google logo, microphone and
  * Lens icons are the widget's own views and are never touched.
  *
  * HomeSearchBar is found when it attaches to a window (a framework call, so the hook is reliable;
@@ -69,7 +70,7 @@ internal class HomeSearchBarStyle(
         val related = mutableListOf<String>()
         fun walk(view: View) {
             val name = view.javaClass.name
-            if (name.endsWith(".HomeSearchBar")) track(view)
+            if (name.endsWith(".WidgetSearchBar")) track(view)
             if (BuildConfig.DEBUG && related.size < 14 && (name.contains("QSB") || name.contains("SearchBar"))) {
                 related += name.substringAfterLast('.') + " " + view.width + "x" + view.height +
                     " v=" + view.visibility + " attached=" + view.isAttachedToWindow
