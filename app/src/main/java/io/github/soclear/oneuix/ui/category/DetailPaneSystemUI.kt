@@ -257,6 +257,17 @@ fun DetailPaneSystemUI(
                 onEvent(SystemUIEvent.StatusBar.HideBatteryIcon(it))
             }
         )
+        if (ONE_UI_VERSION >= 90000) {
+            SwitchItem(
+                icon = ImageVector.vectorResource(id = R.drawable.battery),
+                title = stringResource(id = R.string.hideBatteryPillText_title),
+                summary = stringResource(id = R.string.hideBatteryPillText_summary),
+                checked = uiState.statusBar.hideBatteryPillText,
+                onCheckedChange = {
+                    onEvent(SystemUIEvent.StatusBar.HideBatteryPillText(it))
+                }
+            )
+        }
         if (ONE_UI_VERSION >= 70000) {
             SwitchItem(
                 icon = ImageVector.vectorResource(id = R.drawable.battery),
@@ -1070,6 +1081,9 @@ sealed interface SystemUIEvent {
         value class HideBatteryIcon(val value: Boolean) : StatusBar
 
         @JvmInline
+        value class HideBatteryPillText(val value: Boolean) : StatusBar
+
+        @JvmInline
         value class AddBatteryLevelText(val value: Boolean) : StatusBar
 
         @JvmInline
@@ -1424,6 +1438,16 @@ private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
                     systemUI = preference.systemUI.copy(
                         statusBar = preference.systemUI.statusBar.copy(
                             hideBatteryIcon = event.value
+                        )
+                    )
+                )
+            }
+
+            is SystemUIEvent.StatusBar.HideBatteryPillText -> {
+                preference.copy(
+                    systemUI = preference.systemUI.copy(
+                        statusBar = preference.systemUI.statusBar.copy(
+                            hideBatteryPillText = event.value
                         )
                     )
                 )

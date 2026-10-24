@@ -16,6 +16,8 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">仅去掉百分号，保留数字</string>
     <string name="hideBatteryIcon_title">隐藏电池图标</string>
     <string name="hideBatteryIcon_summary">隐藏电池图标，插入电源时显示充电图标。不影响电池百分比</string>
+    <string name="hideBatteryPillText_title">隐藏电池胶囊内文字</string>
+    <string name="hideBatteryPillText_summary">隐藏电池图标内的电量数字。充电时，充电图标将居中显示。</string>
     <string name="addBatteryLevelText_title">显示电量文字</string>
     <string name="addBatteryLevelText_summary">在电池图标旁显示电量文字，如 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">隐藏百分号</string>

@@ -26,7 +26,7 @@ internal object ComposeBatteryAppearance {
 
     context(module: XposedModule)
     fun install(options: Preference.SystemUI.StatusBar) = afterAttachTry(
-        options.hideBatteryIcon || options.addBatteryLevelText
+        options.hideBatteryIcon || options.addBatteryLevelText || options.hideBatteryPillText
     ) {
         val stateClass = classLoader.loadClass("com.android.systemui.battery.BatteryLayoutState")
         val drawClass = classLoader.loadClass(
@@ -41,7 +41,8 @@ internal object ComposeBatteryAppearance {
         val fields = listOf(
             "displayLevel", "shouldShowIcon", "shouldShowText", "shouldShowWarningText",
             "shouldShowBackground", "textColor", "iconColor", "frameColor", "totalWidthPx",
-            "totalHeightPx", "textFontSizePx", "textBaselineY", "isRtl", "isCharging"
+            "totalHeightPx", "textFontSizePx", "textBaselineY", "isRtl", "isCharging",
+            "iconOffsetX", "iconWidthPx"
         ).associateWith { stateClass.getDeclaredField(it).apply { isAccessible = true } }
         val drawScope = classLoader.loadClass("androidx.compose.ui.graphics.drawscope.DrawScope")
         val getContext = drawScope.getMethod("getDrawContext")
@@ -103,6 +104,8 @@ internal object ComposeBatteryAppearance {
             val result = chain.proceed()
             val state = chain.thisObject ?: return@intercept result
             try {
+                // Width of the pill itself, before the label option widens the state.
+                val pillWidth = fields.getValue("totalWidthPx").getInt(state)
                 val foreground = fields.getValue("frameColor").getInt(state)
                 if (options.addBatteryLevelText) {
                     val level = fields.getValue("displayLevel").getInt(state)
@@ -152,6 +155,14 @@ internal object ComposeBatteryAppearance {
                     // The stock inside-pill text colour is unsuitable on the wallpaper.
                     fields.getValue("textColor").setInt(state, foreground)
                     fields.getValue("iconColor").set(state, foreground)
+                }
+                if (options.hideBatteryPillText && !options.hideBatteryIcon) {
+                    // Without its text the pill shows the charging bolt alone: centre it.
+                    fields.getValue("shouldShowText").setBoolean(state, false)
+                    val iconWidth = fields.getValue("iconWidthPx").getInt(state)
+                    if (pillWidth in 1..2048 && iconWidth in 1..pillWidth) {
+                        fields.getValue("iconOffsetX").setInt(state, (pillWidth - iconWidth) / 2)
+                    }
                 }
             } catch (t: Throwable) {
                 report(t)

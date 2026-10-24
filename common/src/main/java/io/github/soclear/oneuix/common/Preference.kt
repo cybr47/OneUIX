@@ -49,6 +49,7 @@ data class Preference(
             val batteryIconHeightScale: Float = 1f,
             val hideBatteryPercentageSign: Boolean = false,
             val hideBatteryIcon: Boolean = false,
+            val hideBatteryPillText: Boolean = false,
             val addBatteryLevelText: Boolean = false,
             val hideBatteryLevelTextPercentageSign: Boolean = false,
             val hideBatteryLevelTextChargingIcon: Boolean = false,

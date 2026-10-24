@@ -16,6 +16,8 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">Supprimer uniquement le symbole %, conserver les chiffres</string>
     <string name="hideBatteryIcon_title">Masquer l\'icône de batterie</string>
     <string name="hideBatteryIcon_summary">Masque l\'icône de batterie tout en affichant l\'icône de charge lorsque l\'appareil est branché. N\'affecte pas le pourcentage de batterie</string>
+    <string name="hideBatteryPillText_title">Masquer le texte de la pastille de batterie</string>
+    <string name="hideBatteryPillText_summary">Masque le pourcentage à l\'intérieur de la pastille de batterie. Pendant la charge, l\'éclair est centré.</string>
     <string name="addBatteryLevelText_title">Afficher le niveau de batterie en texte</string>
     <string name="addBatteryLevelText_summary">Afficher le niveau de batterie à côté de l\'icône, ex. 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">Masquer le symbole de pourcentage</string>

@@ -118,12 +118,14 @@ jobs:
 
       - name: Rename APK
         run: |
-          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/OneUIX_${{ github.ref_name }}.apk
+          NAME="${GITHUB_REF_NAME//\//-}"
+          mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/OneUIX_${NAME}.apk"
+          echo "ARTIFACT_NAME=OneUIX_${NAME}" >> "$GITHUB_ENV"
 
       - name: Upload APK Artifact to Actions Tab
         uses: actions/upload-artifact@v4
         with:
-          name: OneUIX_${{ github.ref_name }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: app/build/outputs/apk/release/OneUIX_*.apk
           if-no-files-found: error
 
