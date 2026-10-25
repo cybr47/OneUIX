@@ -1,5 +1,7 @@
 package io.github.soclear.oneuix.hook.fod
 
+import android.content.res.Configuration
+import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -14,6 +16,9 @@ import java.util.WeakHashMap
 
 /** Samsung renders the FOD in Biometrics, separately from SystemUI's text. */
 object FodBiometrics {
+    private const val GLASS_BASE_FACTOR = 1.5f
+    private const val GLASS_ALPHA = 0xB3
+
     context(module: XposedModule)
     fun install(initial: FodConfig) = afterAttachTry(ONE_UI_VERSION >= 90000) {
         val runtime = FodRuntime(module, this, initial)
@@ -112,14 +117,22 @@ object FodBiometrics {
             // Preserve the effect's completion callbacks and sensor feedback lifecycle.
             runCatching { window.reflect["mVisualEffectView"] as? View }.getOrNull()?.let(state::hide)
             val bitmap = runtime.state.bitmap
-            if (bitmap == null) {
+            val glass = runtime.state.config.glassBackground
+            if (bitmap == null && !glass) {
                 state.removeReplacement()
+                state.removeGlass()
                 return
             }
             state.observeLayout()
             val size = FodCompatibility.iconSize(original.layoutParams?.width ?: 0,
                 original.layoutParams?.height ?: 0, original.width, original.height)
             if (size == null) {
+                state.removeReplacement()
+                state.removeGlass()
+                return
+            }
+            if (glass) applyGlass(state, container, original, size) else state.removeGlass()
+            if (bitmap == null) {
                 state.removeReplacement()
                 return
             }
@@ -145,6 +158,41 @@ object FodBiometrics {
             // Container visibility/position/rotation remain entirely Samsung-controlled.
         }
 
+        // Theme-following circle behind the icon. The shortcut tiles fill a CircleShape
+        // with Material surfaceContainerHigh; the framework exposes the same role as
+        // android.R.color.system_surface_container_high_{light,dark}.
+        private fun applyGlass(state: WindowState, container: RelativeLayout, original: ImageView,
+                               size: FodCompatibility.IconSize) {
+            val diameter = (maxOf(size.width, size.height) * GLASS_BASE_FACTOR).toInt().coerceAtLeast(1)
+            val view = state.glass.get() ?: View(original.context).apply {
+                isClickable = false
+                isFocusable = false
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                // Behind the native and replacement icon views.
+                container.addView(this, 0, RelativeLayout.LayoutParams(diameter, diameter).apply {
+                    addRule(RelativeLayout.CENTER_IN_PARENT)
+                })
+                state.glass = WeakReference(this)
+            }
+            state.allowOverflow()
+            if (view.layoutParams.width != diameter || view.layoutParams.height != diameter) {
+                view.layoutParams = RelativeLayout.LayoutParams(diameter, diameter).apply {
+                    addRule(RelativeLayout.CENTER_IN_PARENT)
+                }
+            }
+            val night = (view.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+            val color = view.context.getColor(
+                if (night) android.R.color.system_surface_container_high_dark
+                else android.R.color.system_surface_container_high_light)
+            view.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor((color and 0x00ffffff) or (GLASS_ALPHA shl 24))
+            }
+            view.scaleX = runtime.state.config.glassScale
+            view.scaleY = runtime.state.config.glassScale
+        }
+
         private fun hierarchy(type: Class<*>): List<Class<*>> =
             generateSequence(type) { it.superclass }.takeWhile { it != Any::class.java }.toList()
     }
@@ -156,6 +204,7 @@ object FodBiometrics {
         private val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> onLayout() }
         private var observingLayout = false
         var replacement = WeakReference<ImageView>(null)
+        var glass = WeakReference<View>(null)
         private val hidden = WeakHashMap<View, Float>()
         private val rootClipChildren = root.clipChildren
         private val rootClipPadding = root.clipToPadding
@@ -186,7 +235,17 @@ object FodBiometrics {
         fun removeReplacement() {
             replacement.get()?.let { (it.parent as? ViewGroup)?.removeView(it) }
             replacement.clear()
-            if (changedClipping) {
+            releaseClipping()
+        }
+
+        fun removeGlass() {
+            glass.get()?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            glass.clear()
+            releaseClipping()
+        }
+
+        private fun releaseClipping() {
+            if (glass.get() == null && replacement.get() == null && changedClipping) {
                 root.get()?.apply { clipChildren = rootClipChildren; clipToPadding = rootClipPadding }
                 container.get()?.apply { clipChildren = containerClipChildren; clipToPadding = containerClipPadding }
                 changedClipping = false
@@ -197,6 +256,7 @@ object FodBiometrics {
             originalView.get()?.removeOnLayoutChangeListener(layoutListener)
             observingLayout = false
             removeReplacement()
+            removeGlass()
             hidden.forEach { (view, alpha) -> view.alpha = alpha }
             hidden.clear()
         }

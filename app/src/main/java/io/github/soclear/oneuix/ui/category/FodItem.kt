@@ -54,6 +54,7 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    var glassPercent by remember(config.glassSizePercent) { mutableFloatStateOf(config.glassScale * 100f) }
     var percent by remember(config.sizePercent) { mutableFloatStateOf(config.scale * 100f) }
     val preview by produceState<Bitmap?>(null, config.iconSlot, config.iconDigest) {
         value = withContext(Dispatchers.IO) { FodIconStore.preview(config) }
@@ -91,6 +92,26 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
         )
         AnimatedVisibility(expanded && config.hideIcon) {
             Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SwitchItem(
+                    title = stringResource(R.string.fod_glass_title),
+                    summary = stringResource(R.string.fod_glass_summary),
+                    checked = config.glassBackground,
+                    onCheckedChange = { onEvent(SystemUIEvent.Fod.Glass(it)) },
+                )
+                if (config.glassBackground) {
+                    Text(stringResource(R.string.fod_glass_size, glassPercent.roundToInt()))
+                    Slider(value = glassPercent, onValueChange = { glassPercent = it }, valueRange = 50f..150f,
+                        steps = 99,
+                        onValueChangeFinished = { onEvent(SystemUIEvent.Fod.GlassSize(glassPercent.roundToInt())) })
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("50%")
+                        TextButton(onClick = {
+                            glassPercent = 100f
+                            onEvent(SystemUIEvent.Fod.GlassSize(100))
+                        }) { Text(stringResource(R.string.fod_reset_size)) }
+                        Text("150%")
+                    }
+                }
                 Text(stringResource(R.string.fod_replace), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.fod_png_summary), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

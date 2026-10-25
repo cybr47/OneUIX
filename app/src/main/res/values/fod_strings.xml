@@ -11,5 +11,8 @@
     <string name="fod_size">Size: %1$d%%</string>
     <string name="fod_reset_size">Reset to 100%</string>
     <string name="fod_import_failed">Could not import the image. Choose a PNG under 8 MB and 8192 × 8192 pixels, and check that the module is active.</string>
+    <string name="fod_glass_title">Frosted glass background</string>
+    <string name="fod_glass_summary">Draw a circle behind the FOD icon that follows the system theme, like the lock screen shortcut tiles.</string>
+    <string name="fod_glass_size">Background size: %1$d%%</string>
     <string name="fod_scope">Enable System UI and Biometrics (com.samsung.android.biometrics.app.setting) in this module’s LSPosed scope, then reboot once. Later changes apply automatically. 100% uses the stock icon size.</string>
 </resources>

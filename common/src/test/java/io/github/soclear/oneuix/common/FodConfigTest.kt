@@ -33,6 +33,15 @@ class FodConfigTest {
         assertEquals(1.5f, FodConfig(sizePercent = Int.MAX_VALUE).scale, 0f)
     }
 
+    @Test fun glassBackgroundIsOffByDefaultAndItsSizeIsBounded() {
+        val config = FodConfig()
+        assertEquals(false, config.glassBackground)
+        assertEquals(1f, config.glassScale, 0f)
+        assertEquals(.5f, FodConfig(glassSizePercent = Int.MIN_VALUE).glassScale, 0f)
+        assertEquals(1.5f, FodConfig(glassSizePercent = Int.MAX_VALUE).glassScale, 0f)
+        assertEquals(1f, FodConfig(glassSizePercent = 180, sizePercent = 50).scale * 2f, 0f)
+    }
+
     @Test fun restoredMetadataCannotSelectArbitraryRemoteFiles() {
         assertNull(FodConfig(iconSlot = 2, iconDigest = "a".repeat(64)).iconFileName)
         assertNull(FodConfig(iconSlot = 0, iconDigest = "../preference.json").iconFileName)

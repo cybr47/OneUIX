@@ -1051,6 +1051,8 @@ sealed interface SystemUIEvent {
     sealed interface Fod : SystemUIEvent {
         data class Enabled(val value: Boolean) : Fod
         data class Size(val value: Int) : Fod
+        data class Glass(val value: Boolean) : Fod
+        data class GlassSize(val value: Int) : Fod
         data class SelectIcon(val slot: Int, val digest: String) : Fod
         data object RemoveIcon : Fod
     }
@@ -1289,6 +1291,8 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
         is SystemUIEvent.Fod -> updateFod { current ->
             when (event) {
                 is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
+                is SystemUIEvent.Fod.Glass -> current.copy(glassBackground = event.value)
+                is SystemUIEvent.Fod.GlassSize -> current.copy(glassSizePercent = event.value.coerceIn(50, 150))
                 is SystemUIEvent.Fod.Size -> current.copy(sizePercent = event.value.coerceIn(50, 150))
                 is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest)
                 SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "")

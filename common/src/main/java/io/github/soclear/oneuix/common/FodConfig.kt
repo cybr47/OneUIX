@@ -10,8 +10,11 @@ data class FodConfig(
     val iconSlot: Int = -1,
     val iconDigest: String = "",
     val sizePercent: Int = 100,
+    val glassBackground: Boolean = false,
+    val glassSizePercent: Int = 100,
 ) {
     val scale: Float get() = sizePercent.coerceIn(50, 150) / 100f
+    val glassScale: Float get() = glassSizePercent.coerceIn(50, 150) / 100f
     val hasCustomIcon: Boolean
         get() = iconSlot in 0..1 && iconDigest.length == 64 &&
             iconDigest.all { it in '0'..'9' || it in 'a'..'f' }
