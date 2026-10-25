@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="adaptiveHomeStatusBar_title">Adaptive status bar on Home</string>
-    <string name="adaptiveHomeStatusBar_summary">Use dark icons over a light background and light icons over a dark background on the home screen.</string>
+    <string name="adaptiveHomeStatusBar_title">Homescreen Dark Status Bar</string>
+    <string name="adaptiveHomeStatusBar_summary">Always use Samsung\'s dark status bar icons on the home screen. The app drawer keeps its default white status bar.</string>
     <string name="hideClockOnHome_title">Fade clock on Home</string>
     <string name="hideClockOnHome_summary">Fade out the clock on Home and smoothly move notification icons into its space. Restore their positions when opening an app.</string>
 </resources>

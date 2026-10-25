@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="adaptiveHomeStatusBar_title">홈 화면의 적응형 상태 표시줄</string>
-    <string name="adaptiveHomeStatusBar_summary">홈 화면에서 밝은 배경에는 어두운 아이콘을, 어두운 배경에는 밝은 아이콘을 사용합니다.</string>
+    <string name="adaptiveHomeStatusBar_title">홈 화면 어두운 상태 표시줄</string>
+    <string name="adaptiveHomeStatusBar_summary">홈 화면에서 항상 삼성 기본 어두운 상태 표시줄 아이콘을 사용합니다. 앱 서랍은 기본 흰색 상태 표시줄을 유지합니다.</string>
     <string name="hideClockOnHome_title">홈 화면 시계 페이드</string>
     <string name="hideClockOnHome_summary">홈 화면에서는 상태 표시줄 시계가 서서히 사라지고 앱을 열면 다시 나타납니다.</string>
 </resources>

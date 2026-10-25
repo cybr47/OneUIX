@@ -23,9 +23,14 @@ import io.github.soclear.oneuix.hook.util.xlog
 import java.lang.reflect.Constructor
 import java.lang.reflect.Proxy
 import java.util.WeakHashMap
-import java.util.concurrent.Executors
 
-/** Uses native task/composition notifications and the launcher's surface events. */
+/**
+ * Home-screen dark status bar and Home clock fade.
+ *
+ * Dark status bar: while the launcher reports Home (not the drawer or Recents) and the shade is
+ * closed, Samsung's own appearance pipeline is told the whole bar is "light", which renders its
+ * native dark icons. Nothing is sampled or polled: it only reacts to events Samsung already sends.
+ */
 @SuppressLint("PrivateApi")
 internal object HomeStatusBar {
     context(module: XposedModule)
@@ -48,9 +53,7 @@ internal object HomeStatusBar {
     ) {
         private val loader = context.classLoader
         private val main = Handler(Looper.getMainLooper())
-        private val background by lazy {
-            Executors.newSingleThreadExecutor { Thread(it, "OneUIX-status-sampling").apply { isDaemon = true } }
-        }
+        private val darkBar = options.adaptiveHomeStatusBar
         private val clocks = WeakHashMap<View, HomeClockTransition>()
         private var stateController: Any? = null
         private var appearanceRepository: Any? = null
@@ -59,16 +62,10 @@ internal object HomeStatusBar {
         private var nativeSampledRegions: Any? = null
         private var publishedRegions: List<Any>? = null
         private var windowPackage: String? = null
-        private var statusView: View? = null
         private var clockHidden = false
-        private var tintActive = false
         private var homeTask = false
         private var recentsTask = false
         private var nativeLauncherAppearance: Boolean? = null
-        private var samplers = emptyList<Any>()
-        private val regions = arrayOf(Rect(), Rect())
-        private val darkBackground = arrayOfNulls<Boolean>(2)
-        private var sampling = false
         private val reported = mutableSetOf<String>()
         private var refreshPending = false
         private var lastRefresh = 0L
@@ -84,20 +81,21 @@ internal object HomeStatusBar {
             }
         }
 
+        /** Clock only: task callbacks can arrive in bursts, so they share one refresh. */
         private fun scheduleRefresh() {
-            // Binder task callbacks can arrive in bursts. Do not poll or queue one job per event:
-            // the first event runs at once, further ones within the window share one later run.
             if (refreshPending) return
             refreshPending = true
             val wait = REFRESH_WINDOW_MS - (SystemClock.uptimeMillis() - lastRefresh)
             if (wait > 0) main.postDelayed(refresh, wait) else main.post(refresh)
         }
 
+        private fun onStateEvent() {
+            if (darkBar) safely("dark status bar") { updateDarkBar() }
+            if (options.hideClockOnHome) scheduleRefresh()
+        }
+
         fun install() {
-            val taskClass = loader.loadClass("com.android.systemui.shared.system.TaskStackChangeListeners\$Impl")
             val stateClass = loader.loadClass("com.android.systemui.statusbar.StatusBarStateControllerImpl")
-            val binder = loader.loadClass("com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinderImpl")
-            val clockClass = loader.loadClass("com.android.systemui.statusbar.policy.QSClockIndicatorView")
             val stateListener = loader.loadClass("com.android.systemui.plugins.statusbar.StatusBarStateController\$StateListener")
             val addListener = stateClass.getDeclaredMethod("addCallback", stateListener)
             stateClass.declaredConstructors.forEach { constructor ->
@@ -111,67 +109,60 @@ internal object HomeStatusBar {
                                 val listener = proxy(stateListener) { name, _ ->
                                     // Doze-amount, pulsing and fullscreen callbacks fire constantly
                                     // during transitions and change nothing used here.
-                                    if (name in STATE_EVENTS) scheduleRefresh()
+                                    if (name in STATE_EVENTS) onStateEvent()
                                     null
                                 }
                                 addListener.invoke(instance, listener)
-                                scheduleRefresh()
+                                onStateEvent()
                             }
                         }
                     }
                     result
                 }
             }
-            taskClass.declaredMethods.filter { it.name in setOf(
-                "onTaskStackChanged", "onTaskMovedToFront", "onTaskFocusChanged",
-                "onActivityRestartAttempt", "onActivityRotation"
-            ) }.forEach { method ->
-                module.hook(method).intercept { chain ->
-                    val result = chain.proceed()
-                    scheduleRefresh()
-                    result
-                }
+            if (darkBar) {
+                safely("dark status bar hooks") { installAppearanceHooks() }
             }
-            if (options.adaptiveHomeStatusBar) {
-                safely("colour hooks") { installAppearanceHooks() }
-            }
-            // Both options need to tell Home from the app drawer: the tint to stay native in the
-            // drawer, and the clock to stay visible there.
+            // The launcher says whether it shows Home, the drawer or Recents.
             safely("launcher state") {
                 LauncherStatusBarBridge.listenForState(context, main) { nativeAppearance ->
                     nativeLauncherAppearance = nativeAppearance
-                    if (options.adaptiveHomeStatusBar) safely("launcher handoff") {
-                        updateSampling()
-                        updateAppearance()
-                    }
-                    scheduleRefresh()
+                    if (darkBar) safely("dark status bar") { updateDarkBar() }
+                    if (options.hideClockOnHome) scheduleRefresh()
                 }
                 // Also works when only SystemUI restarts in the drawer or Recents.
                 LauncherStatusBarBridge.query(context)
             }
-            module.hook(binder.declaredMethods.single { it.name == "bind" }).intercept { chain ->
-                val result = chain.proceed()
-                val view = chain.args.firstOrNull() as? View
-                if (view != null) safely("status view") { trackStatusView(view) }
-                result
-            }
             if (options.hideClockOnHome) {
+                val taskClass = loader.loadClass("com.android.systemui.shared.system.TaskStackChangeListeners\$Impl")
+                val clockClass = loader.loadClass("com.android.systemui.statusbar.policy.QSClockIndicatorView")
+                taskClass.declaredMethods.filter { it.name in setOf(
+                    "onTaskStackChanged", "onTaskMovedToFront", "onTaskFocusChanged",
+                    "onActivityRestartAttempt", "onActivityRotation"
+                ) }.forEach { method ->
+                    module.hook(method).intercept { chain ->
+                        val result = chain.proceed()
+                        scheduleRefresh()
+                        result
+                    }
+                }
                 module.hook(clockClass.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
                     val result = chain.proceed()
                     (chain.thisObject as? View)?.let { view -> safely("clock") { trackClock(view) } }
                     result
                 }
+                context.registerReceiver(object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) = scheduleRefresh()
+                }, IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                }, Context.RECEIVER_NOT_EXPORTED)
+                scheduleRefresh()
             }
-            context.registerReceiver(object : BroadcastReceiver() {
-                override fun onReceive(context: Context?, intent: Intent?) = scheduleRefresh()
-            }, IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_OFF)
-                addAction(Intent.ACTION_SCREEN_ON)
-                addAction(Intent.ACTION_USER_PRESENT)
-            }, Context.RECEIVER_NOT_EXPORTED)
-            scheduleRefresh()
         }
 
+        /** Home clock fade: needs the current task to tell Home and Recents from other surfaces. */
         @Suppress("DEPRECATION")
         @SuppressLint("MissingPermission") // Runs inside the already-privileged SystemUI process.
         private fun refreshHome() {
@@ -186,13 +177,8 @@ internal object HomeStatusBar {
             // task lookup (a binder call) is skipped. Every such state change refreshes again.
             val surfaceInactive = !interactive || locked || state != 0 || expanded || dozing || dreaming
             if (surfaceInactive) {
-                tintActive = false
                 clockHidden = false
                 clocks.values.toList().forEach { it.setHidden(false) }
-                if (options.adaptiveHomeStatusBar) {
-                    safely("sampling") { updateSampling() }
-                    safely("tint") { updateAppearance() }
-                }
                 return
             }
             // A launcher package alone is not enough: Recents and other activity types must not
@@ -210,9 +196,6 @@ internal object HomeStatusBar {
             }.getOrDefault(false to false)
             homeTask = isHome
             recentsTask = isRecents
-            tintActive = StatusBarAppearance.isHomeAppearanceActive(
-                homeTask && !isRecents, interactive, locked, state, expanded, dozing || dreaming
-            )
             // The clock follows Home and Recents, but stays visible in the app drawer.
             // Recents can be its own activity type, so it is not required to be a Home task.
             clockHidden = StatusBarAppearance.isHomeAppearanceActive(
@@ -220,10 +203,6 @@ internal object HomeStatusBar {
                 interactive, locked, state, expanded, dozing || dreaming
             )
             clocks.values.toList().forEach { it.setHidden(clockHidden) }
-            if (options.adaptiveHomeStatusBar) {
-                safely("sampling") { updateSampling() }
-                safely("tint") { updateAppearance() }
-            }
         }
 
         private fun trackClock(view: View) {
@@ -240,105 +219,16 @@ internal object HomeStatusBar {
             scheduleRefresh()
         }
 
-        private fun trackStatusView(view: View) {
-            if (view.display != null && view.display.displayId != 0) return
-            if (statusView === view) return
-            statusView?.let { old -> destroySamplers(old) }
-            statusView = view
-            view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    statusView = v
-                    scheduleRefresh()
-                }
-                override fun onViewDetachedFromWindow(v: View) {
-                    // RegionSamplingHelper owns and destroys its native listener on detach.
-                    if (statusView === v) {
-                        samplers = emptyList()
-                        sampling = false
-                        darkBackground.fill(null)
-                        statusView = null
-                        safely("tint restore") { updateAppearance() }
-                    }
-                }
-            })
-            view.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
-                // Clock-width frames relayout children; query tasks only when the bar's bounds change.
-                if (left != oldLeft || top != oldTop || right != oldRight || bottom != oldBottom) scheduleRefresh()
-            }
-            scheduleRefresh()
+        private fun darkBarAllowed(): Boolean {
+            if (!StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, false)) return false
+            if (!StatusBarAppearance.launcherAllowsAdaptiveTint(nativeLauncherAppearance, false)) return false
+            val controller = stateController ?: return false
+            val state = controller.reflect.call("getState") as? Int
+            val expanded = controller.reflect.call("isExpanded") as? Boolean ?: true
+            val dozing = controller.reflect.call("isDozing") as? Boolean ?: true
+            val dreaming = controller.reflect.call("isDreaming") as? Boolean ?: true
+            return state == 0 && !expanded && !dozing && !dreaming
         }
-
-        private fun destroySamplers(view: View) {
-            samplers.forEach { helper -> safely("sampler cleanup") {
-                helper.reflect.call("onViewDetachedFromWindow", view)
-            } }
-            samplers = emptyList()
-            sampling = false
-            darkBackground.fill(null)
-        }
-
-        private fun updateSampling() {
-            val view = statusView
-            val enabled = tintActive && windowAllowsSampling() && sampledAppearanceFlow != null &&
-                view?.isAttachedToWindow == true && view.width > 0 && view.height > 0
-            if (!enabled) {
-                if (sampling) samplers.forEach { it.reflect.call("stop") }
-                sampling = false
-                darkBackground.fill(null)
-                return
-            }
-            view!!
-            val location = IntArray(2)
-            view.getLocationOnScreen(location)
-            val x = location[0]
-            val y = location[1]
-            val middle = x + view.width / 2
-            val newRegions = arrayOf(Rect(x, y, middle, y + view.height), Rect(middle, y, x + view.width, y + view.height))
-            val changed = !regions.contentEquals(newRegions)
-            regions.indices.forEach { regions[it].set(newRegions[it]) }
-            if (samplers.isEmpty()) {
-                val helperClass = loader.loadClass("com.android.wm.shell.shared.handles.RegionSamplingHelper")
-                val callback = loader.loadClass("com.android.wm.shell.shared.handles.RegionSamplingHelper\$SamplingCallback")
-                val constructor = helperClass.getConstructor(View::class.java, callback,
-                    java.util.concurrent.Executor::class.java, java.util.concurrent.Executor::class.java)
-                val created = mutableListOf<Any>()
-                try {
-                    regions.indices.forEach { index ->
-                        val listener = proxy(callback) { name, args ->
-                            when (name) {
-                                "getSampledRegion" -> Rect(regions[index])
-                                "isSamplingEnabled" -> tintActive && windowAllowsSampling()
-                                "onRegionDarknessChanged" -> {
-                                    if (sampling && tintActive && windowAllowsSampling() && statusView === view) {
-                                        darkBackground[index] = args?.firstOrNull() as? Boolean
-                                        safely("sample tint") { updateAppearance() }
-                                    }
-                                    null
-                                }
-                                else -> null
-                            }
-                        }
-                        created += constructor.newInstance(view, listener, context.mainExecutor, background)
-                    }
-                    samplers = created
-                } catch (t: Throwable) {
-                    created.forEach { it.reflect.call("onViewDetachedFromWindow", view) }
-                    throw t
-                }
-            }
-            if (!sampling || changed) {
-                darkBackground.fill(null)
-                sampling = true
-                samplers.forEachIndexed { index, helper ->
-                    helper.reflect["mWindowVisible"] = true
-                    helper.reflect.call("start", Rect(regions[index]))
-                }
-            }
-        }
-
-        private fun windowAllowsSampling() =
-            StatusBarAppearance.windowAllowsAdaptiveTint(windowPackage, recentsTask) &&
-                StatusBarAppearance.launcherAllowsAdaptiveTint(nativeLauncherAppearance, recentsTask)
 
         private fun installAppearanceHooks() {
             // Feed the native appearance pipeline, not its final DarkIconDispatcher output.
@@ -355,7 +245,7 @@ internal object HomeStatusBar {
             }
             val regionType = loader.loadClass("com.android.internal.view.AppearanceRegion")
             appearanceRegionConstructor = regionType.getConstructor(Int::class.javaPrimitiveType, Rect::class.java)
-            // Validate the full contract before enabling sampling or installing any hook.
+            // Validate the full contract before installing any hook.
             flowField.type.getDeclaredMethod("getValue")
             flowField.type.getDeclaredMethod("setValue", Any::class.java)
             flowField.type.getDeclaredMethod("compareAndSet", Any::class.java, Any::class.java)
@@ -369,7 +259,7 @@ internal object HomeStatusBar {
                         appearanceRepository = chain.thisObject
                         sampledAppearanceFlow = flowField.get(chain.thisObject)
                         windowPackage = null
-                        scheduleRefresh()
+                        updateDarkBar()
                     }
                     result
                 }
@@ -378,19 +268,11 @@ internal object HomeStatusBar {
                 if (chain.args[0] != 0 || repositoryField.get(chain.thisObject) !== appearanceRepository) {
                     return@intercept chain.proceed()
                 }
-                // This main-thread window event can precede the task-stack notification.
-                // Stop accepting Home samples as soon as an app owns the status bar.
+                // An app owning the status bar must get its own attributes at once: stop forcing
+                // the dark bar first, then let the app's attributes through.
                 windowPackage = chain.args[6] as? String
                 val result = chain.proceed()
-                safely("window appearance handoff") {
-                    if (!windowAllowsSampling()) {
-                        updateSampling()
-                        // Forward the new app attributes FIRST. Clearing the sample input
-                        // now exposes those attributes, never a cached Home tint.
-                        restoreNativeAppearance()
-                    }
-                }
-                scheduleRefresh()
+                safely("window appearance handoff") { updateDarkBar() }
                 result
             }
         }
@@ -404,23 +286,18 @@ internal object HomeStatusBar {
             nativeSampledRegions = null
         }
 
-        private fun updateAppearance() {
+        private fun updateDarkBar() {
             val flow = sampledAppearanceFlow ?: return
-            if (!tintActive || !windowAllowsSampling()) {
+            if (!darkBarAllowed()) {
                 // Samsung's transition controller synchronizes this input change with the
                 // app animation, including when task and window callbacks arrive out of order.
                 restoreNativeAppearance()
                 return
             }
-            // Preserve the current input during a view rebind or until BOTH sides are ready.
-            if (!sampling || darkBackground.any { it == null }) return
             val constructor = appearanceRegionConstructor ?: return
-            val desired = regions.indices.map { index ->
-                constructor.newInstance(
-                    if (darkBackground[index] == false) 8 else 0, // APPEARANCE_LIGHT_STATUS_BARS
-                    Rect(regions[index]).apply { top = 0 }
-                )
-            }
+            // One region over the whole bar: APPEARANCE_LIGHT_STATUS_BARS (8) is Samsung's dark icons.
+            val size = context.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) }
+            val desired = listOf(constructor.newInstance(8, Rect(0, 0, size, size)))
             val current = flow.reflect.call("getValue")
             if (current == desired) return
             if (publishedRegions == null || current != publishedRegions) nativeSampledRegions = current
