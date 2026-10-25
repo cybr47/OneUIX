@@ -105,19 +105,25 @@ object FodBiometrics {
                     }
                 }
             }
-            if (!runtime.state.config.hideIcon) {
+            val hideIcon = runtime.state.config.hideIcon
+            val glass = runtime.state.config.glassBackground
+            if (!hideIcon && !glass) {
                 state.restore()
                 return
             }
-            // FingerprintSensorInfo on newer firmware has no getImageSize(). The
-            // native view already has Samsung's size, including density/rotation.
-            // Hide independently of sizing so a pending layout cannot reveal it.
-            state.hide(original)
-            (window.reflect["mHelpMessageOnAodView"] as? View)?.let(state::hide)
-            // Preserve the effect's completion callbacks and sensor feedback lifecycle.
-            runCatching { window.reflect["mVisualEffectView"] as? View }.getOrNull()?.let(state::hide)
-            val bitmap = runtime.state.bitmap
-            val glass = runtime.state.config.glassBackground
+            if (hideIcon) {
+                // FingerprintSensorInfo on newer firmware has no getImageSize(). The
+                // native view already has Samsung's size, including density/rotation.
+                // Hide independently of sizing so a pending layout cannot reveal it.
+                state.hide(original)
+                (window.reflect["mHelpMessageOnAodView"] as? View)?.let(state::hide)
+                // Preserve the effect's completion callbacks and sensor feedback lifecycle.
+                runCatching { window.reflect["mVisualEffectView"] as? View }.getOrNull()?.let(state::hide)
+            } else {
+                // The background is independent: show Samsung's own icon unchanged.
+                state.restoreNative()
+            }
+            val bitmap = if (hideIcon) runtime.state.bitmap else null
             if (bitmap == null && !glass) {
                 state.removeReplacement()
                 state.removeGlass()
@@ -250,6 +256,12 @@ object FodBiometrics {
                 container.get()?.apply { clipChildren = containerClipChildren; clipToPadding = containerClipPadding }
                 changedClipping = false
             }
+        }
+
+        fun restoreNative() {
+            removeReplacement()
+            hidden.forEach { (view, alpha) -> view.alpha = alpha }
+            hidden.clear()
         }
 
         fun restore() {

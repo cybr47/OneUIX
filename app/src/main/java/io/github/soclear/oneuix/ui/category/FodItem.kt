@@ -92,26 +92,6 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
         )
         AnimatedVisibility(expanded && config.hideIcon) {
             Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SwitchItem(
-                    title = stringResource(R.string.fod_glass_title),
-                    summary = stringResource(R.string.fod_glass_summary),
-                    checked = config.glassBackground,
-                    onCheckedChange = { onEvent(SystemUIEvent.Fod.Glass(it)) },
-                )
-                if (config.glassBackground) {
-                    Text(stringResource(R.string.fod_glass_size, glassPercent.roundToInt()))
-                    Slider(value = glassPercent, onValueChange = { glassPercent = it }, valueRange = 50f..150f,
-                        steps = 99,
-                        onValueChangeFinished = { onEvent(SystemUIEvent.Fod.GlassSize(glassPercent.roundToInt())) })
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("50%")
-                        TextButton(onClick = {
-                            glassPercent = 100f
-                            onEvent(SystemUIEvent.Fod.GlassSize(100))
-                        }) { Text(stringResource(R.string.fod_reset_size)) }
-                        Text("150%")
-                    }
-                }
                 Text(stringResource(R.string.fod_replace), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.fod_png_summary), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -150,6 +130,29 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
                 }
                 Text(stringResource(R.string.fod_scope), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 16.dp))
+            }
+        }
+        SwitchItem(
+            title = stringResource(R.string.fod_glass_title),
+            summary = stringResource(R.string.fod_glass_summary),
+            icon = ImageVector.vectorResource(R.drawable.fingerprint),
+            checked = config.glassBackground,
+            onCheckedChange = { onEvent(SystemUIEvent.Fod.Glass(it)) },
+        )
+        AnimatedVisibility(config.glassBackground) {
+            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.fod_glass_size, glassPercent.roundToInt()))
+                Slider(value = glassPercent, onValueChange = { glassPercent = it }, valueRange = 50f..150f,
+                    steps = 99,
+                    onValueChangeFinished = { onEvent(SystemUIEvent.Fod.GlassSize(glassPercent.roundToInt())) })
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("50%")
+                    TextButton(onClick = {
+                        glassPercent = 100f
+                        onEvent(SystemUIEvent.Fod.GlassSize(100))
+                    }) { Text(stringResource(R.string.fod_reset_size)) }
+                    Text("150%")
+                }
             }
         }
     }
