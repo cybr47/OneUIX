@@ -11,6 +11,7 @@ import io.github.soclear.oneuix.hook.util.xlog
 import java.util.Collections
 import java.util.WeakHashMap
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /** One UI 9's battery is drawn by Compose, not BatteryMeterView's legacy ImageView. */
 internal object ComposeBatteryAppearance {
@@ -26,7 +27,8 @@ internal object ComposeBatteryAppearance {
 
     context(module: XposedModule)
     fun install(options: Preference.SystemUI.StatusBar) = afterAttachTry(
-        options.hideBatteryIcon || options.addBatteryLevelText
+        options.hideBatteryIcon || options.addBatteryLevelText || options.hideBatteryPillText ||
+            options.setBatteryIconWidthScale || options.setBatteryIconHeightScale
     ) {
         val stateClass = classLoader.loadClass("com.android.systemui.battery.BatteryLayoutState")
         val drawClass = classLoader.loadClass(
@@ -41,7 +43,8 @@ internal object ComposeBatteryAppearance {
         val fields = listOf(
             "displayLevel", "shouldShowIcon", "shouldShowText", "shouldShowWarningText",
             "shouldShowBackground", "textColor", "iconColor", "frameColor", "totalWidthPx",
-            "totalHeightPx", "textFontSizePx", "textBaselineY", "isRtl", "isCharging"
+            "totalHeightPx", "textFontSizePx", "textBaselineY", "isRtl", "isCharging",
+            "iconOffsetX", "iconWidthPx", "iconHeightPx", "iconOffsetY", "textOffsetX"
         ).associateWith { stateClass.getDeclaredField(it).apply { isAccessible = true } }
         val drawScope = classLoader.loadClass("androidx.compose.ui.graphics.drawscope.DrawScope")
         val getContext = drawScope.getMethod("getDrawContext")
@@ -60,6 +63,29 @@ internal object ComposeBatteryAppearance {
                 reportedFailure = true
                 xlog("One UI 9 battery appearance could not be applied", t)
             }
+        }
+
+        val widthScale = if (options.setBatteryIconWidthScale) options.batteryIconWidthScale else 1f
+        val heightScale = if (options.setBatteryIconHeightScale) options.batteryIconHeightScale else 1f
+        fun scaleInt(state: Any, name: String, factor: Float) {
+            val field = fields.getValue(name)
+            field.setInt(state, (field.getInt(state) * factor).roundToInt())
+        }
+        // Scales the whole pill: its size, the bolt and the text inside it, so proportions hold.
+        fun scalePill(state: Any) {
+            if (widthScale == 1f && heightScale == 1f) return
+            if (widthScale !in 0.1f..5f || heightScale !in 0.1f..5f) return
+            scaleInt(state, "totalWidthPx", widthScale)
+            scaleInt(state, "totalHeightPx", heightScale)
+            scaleInt(state, "iconWidthPx", widthScale)
+            scaleInt(state, "iconHeightPx", heightScale)
+            scaleInt(state, "iconOffsetX", widthScale)
+            scaleInt(state, "iconOffsetY", heightScale)
+            scaleInt(state, "textOffsetX", widthScale)
+            val baseline = fields.getValue("textBaselineY")
+            baseline.setFloat(state, baseline.getFloat(state) * heightScale)
+            val size = fields.getValue("textFontSizePx")
+            size.setFloat(state, size.getFloat(state) * minOf(widthScale, heightScale))
         }
 
         module.hook(draw).intercept { chain ->
@@ -103,6 +129,9 @@ internal object ComposeBatteryAppearance {
             val result = chain.proceed()
             val state = chain.thisObject ?: return@intercept result
             try {
+                scalePill(state)
+                // Width of the pill itself, before the label option widens the state.
+                val pillWidth = fields.getValue("totalWidthPx").getInt(state)
                 val foreground = fields.getValue("frameColor").getInt(state)
                 if (options.addBatteryLevelText) {
                     val level = fields.getValue("displayLevel").getInt(state)
@@ -152,6 +181,14 @@ internal object ComposeBatteryAppearance {
                     // The stock inside-pill text colour is unsuitable on the wallpaper.
                     fields.getValue("textColor").setInt(state, foreground)
                     fields.getValue("iconColor").set(state, foreground)
+                }
+                if (options.hideBatteryPillText && !options.hideBatteryIcon) {
+                    // Without its text the pill shows the charging bolt alone: centre it.
+                    fields.getValue("shouldShowText").setBoolean(state, false)
+                    val iconWidth = fields.getValue("iconWidthPx").getInt(state)
+                    if (pillWidth in 1..2048 && iconWidth in 1..pillWidth) {
+                        fields.getValue("iconOffsetX").setInt(state, (pillWidth - iconWidth) / 2)
+                    }
                 }
             } catch (t: Throwable) {
                 report(t)

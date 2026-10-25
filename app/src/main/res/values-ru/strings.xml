@@ -16,6 +16,10 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">Удалить только символ %, оставив цифры</string>
     <string name="hideBatteryIcon_title">Скрыть иконку батареи</string>
     <string name="hideBatteryIcon_summary">Скрывает иконку батареи, показывая иконку зарядки при подключении питания. Не влияет на процент заряда батареи</string>
+    <string name="hideBatteryPillText_title">Скрыть текст в значке батареи</string>
+    <string name="hideBatteryPillText_summary">Скрывает проценты внутри значка батареи. При зарядке значок молнии отображается по центру.</string>
+    <string name="hideWifiGenerationDigit_title">Скрыть цифру поколения Wi-Fi</string>
+    <string name="hideWifiGenerationDigit_summary">Скрывает цифру рядом со значком Wi-Fi (например 5, 6 или 7) и показывает обычный значок Wi-Fi.</string>
     <string name="addBatteryLevelText_title">Показать текст заряда батареи</string>
     <string name="addBatteryLevelText_summary">Показывать заряд батареи текстом рядом с иконкой, напр. 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">Скрыть символ процента</string>

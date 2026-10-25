@@ -13,6 +13,7 @@ import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.ESIM
 import io.github.soclear.oneuix.hook.systemui.ComposeBatteryAppearance
 import io.github.soclear.oneuix.hook.systemui.HomeStatusBar
+import io.github.soclear.oneuix.hook.systemui.WifiGeneration
 import io.github.soclear.oneuix.hook.systemui.HideBatteryIcon
 import io.github.soclear.oneuix.hook.systemui.Notification
 import io.github.soclear.oneuix.hook.systemui.QS
@@ -300,6 +301,9 @@ class Main : XposedModule() {
                 if (ONE_UI_VERSION >= 90000) {
                     if (processName == Package.SYSTEMUI) {
                         ComposeBatteryAppearance.install(preference.systemUI.statusBar)
+                        if (preference.systemUI.statusBar.hideWifiGenerationDigit) {
+                            WifiGeneration.hideDigit()
+                        }
                         HomeStatusBar.install(preference.systemUI.statusBar)
                     }
                 } else {

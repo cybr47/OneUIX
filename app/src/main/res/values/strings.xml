@@ -16,6 +16,10 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">Remove the % sign only, keep the numbers</string>
     <string name="hideBatteryIcon_title">Hide battery icon</string>
     <string name="hideBatteryIcon_summary">Hides the battery icon while displaying the charging icon when plugged. Doesn\'t affect the battery percentage</string>
+    <string name="hideBatteryPillText_title">Hide battery pill text</string>
+    <string name="hideBatteryPillText_summary">Hides the percentage inside the battery pill. While charging, the charging bolt is centred in the pill.</string>
+    <string name="hideWifiGenerationDigit_title">Hide Wi-Fi generation number</string>
+    <string name="hideWifiGenerationDigit_summary">Hides the digit next to the Wi-Fi icon (for example 5, 6 or 7) and shows the plain Wi-Fi icon.</string>
     <string name="addBatteryLevelText_title">Show battery level text</string>
     <string name="addBatteryLevelText_summary">Display battery level as text alongside the icon, e.g. 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">Hide percentage sign</string>
