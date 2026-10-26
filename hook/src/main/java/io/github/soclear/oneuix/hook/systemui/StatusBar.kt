@@ -158,15 +158,22 @@ object StatusBar {
 
     context(xposedModule: XposedModule)
     fun setStatusBarClockTextScale(scale: Float) = afterAttachTry {
-        val controllerClass = classLoader.loadClass(
-            "com.android.systemui.statusbar.policy.QSClockIndicatorViewController"
+        // One UI 9: onDensityOrFontScaleChanged() only posts a Runnable that finally calls
+        // setTextSize(COMPLEX_UNIT_PX, clockFontSize), overwriting anything set earlier.
+        // Scale the size in that Runnable instead, from its own base value (no compounding).
+        val runnableClass = classLoader.loadClass(
+            "com.android.systemui.statusbar.policy.QSClockIndicatorViewController" +
+                "\$onDensityOrFontScaleChanged\$1\$1"
         )
-        val method = controllerClass.getDeclaredMethod("onDensityOrFontScaleChanged")
+        val viewField = runnableClass.getDeclaredField("\$this_apply").apply { isAccessible = true }
+        val sizeField = runnableClass.getDeclaredField("\$clockFontSize").apply { isAccessible = true }
+        val method = runnableClass.getDeclaredMethod("run")
         xposedModule.hook(method).intercept { chain ->
             val result = chain.proceed()
             try {
-                val clockView = chain.thisObject.reflect["view"] as? TextView
-                clockView?.setTextSize(TypedValue.COMPLEX_UNIT_PX, clockView.textSize * scale)
+                val clockView = viewField.get(chain.thisObject) as? TextView
+                val baseSize = sizeField.getInt(chain.thisObject)
+                clockView?.setTextSize(TypedValue.COMPLEX_UNIT_PX, baseSize * scale)
             } catch (t: Throwable) {
                 xlog(t)
             }
