@@ -636,6 +636,13 @@ fun DetailPaneSystemUI(
                 }
             }
         }
+        SwitchItem(
+            icon = ImageVector.vectorResource(id = R.drawable.padding),
+            title = stringResource(R.string.alignStatusBarContentToTop_title),
+            summary = stringResource(R.string.alignStatusBarContentToTop_summary),
+            checked = uiState.statusBar.alignStatusBarContentToTop,
+            onCheckedChange = { onEvent(SystemUIEvent.StatusBar.AlignContentToTop(it)) }
+        )
 
         DividerText(R.string.qs)
         SwitchItem(
@@ -874,6 +881,14 @@ fun DetailPaneSystemUI(
             DividerText(R.string.aod)
             SwitchItem(
                 icon = ImageVector.vectorResource(id = R.drawable.battery),
+                title = stringResource(id = R.string.hideAODChargingInfo_title),
+                checked = uiState.aod.hideAODChargingInfo,
+                onCheckedChange = {
+                    onEvent(SystemUIEvent.AOD.HideAODChargingInfo(it))
+                }
+            )
+            SwitchItem(
+                icon = ImageVector.vectorResource(id = R.drawable.battery),
                 title = stringResource(id = R.string.hideAODStatusBar_title),
                 checked = uiState.aod.hideAODStatusBar,
                 onCheckedChange = {
@@ -962,6 +977,13 @@ fun DetailPaneSystemUI(
             onCheckedChange = {
                 onEvent(SystemUIEvent.Other.DisableScreenshotCaptureSound(it))
             }
+        )
+        SwitchItem(
+            icon = ImageVector.vectorResource(id = R.drawable.block),
+            title = stringResource(R.string.hideLockscreenEmergencyButton_title),
+            summary = stringResource(R.string.hideLockscreenEmergencyButton_summary),
+            checked = uiState.other.hideLockscreenEmergencyButton,
+            onCheckedChange = { onEvent(SystemUIEvent.Other.HideLockscreenEmergencyButton(it)) }
         )
     }
 }
@@ -1071,6 +1093,9 @@ sealed interface SystemUIEvent {
 
         @JvmInline
         value class HideClockOnHome(val value: Boolean) : StatusBar
+
+        @JvmInline
+        value class AlignContentToTop(val value: Boolean) : StatusBar
 
         @JvmInline
         value class ModifyStatusBarLeftPadding(val value: Boolean) : StatusBar
@@ -1266,6 +1291,9 @@ sealed interface SystemUIEvent {
 
     sealed interface AOD : SystemUIEvent {
         @JvmInline
+        value class HideAODChargingInfo(val value: Boolean) : AOD
+
+        @JvmInline
         value class HideAODStatusBar(val value: Boolean) : AOD
 
         @JvmInline
@@ -1287,6 +1315,9 @@ sealed interface SystemUIEvent {
     }
 
     sealed interface Other : SystemUIEvent {
+        @JvmInline
+        value class HideLockscreenEmergencyButton(val value: Boolean) : Other
+
         @JvmInline
         value class CustomPowerMenu(val value: Boolean) : Other
 
@@ -1329,6 +1360,14 @@ private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
                     hideClockOnHome = event.value
                 ))
             )
+            is SystemUIEvent.StatusBar.AlignContentToTop -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    statusBar = preference.systemUI.statusBar.copy(
+                        alignStatusBarContentToTop = event.value
+                    )
+                )
+            )
+
             is SystemUIEvent.StatusBar.ModifyStatusBarLeftPadding -> {
                 preference.copy(
                     systemUI = preference.systemUI.copy(
@@ -1883,6 +1922,16 @@ private fun SettingViewModel.onQSEvent(event: SystemUIEvent.QS) {
 private fun SettingViewModel.onAODEvent(event: SystemUIEvent.AOD) {
     updateData { preference ->
         when (event) {
+            is SystemUIEvent.AOD.HideAODChargingInfo -> {
+                preference.copy(
+                    systemUI = preference.systemUI.copy(
+                        aod = preference.systemUI.aod.copy(
+                            hideAODChargingInfo = event.value
+                        )
+                    )
+                )
+            }
+
             is SystemUIEvent.AOD.HideAODStatusBar -> {
                 preference.copy(
                     systemUI = preference.systemUI.copy(
@@ -1955,6 +2004,14 @@ private fun SettingViewModel.onNotification(event: SystemUIEvent.Notification) {
 private fun SettingViewModel.onOtherEvent(event: SystemUIEvent.Other) {
     updateData { preference ->
         when (event) {
+            is SystemUIEvent.Other.HideLockscreenEmergencyButton -> preference.copy(
+                systemUI = preference.systemUI.copy(
+                    other = preference.systemUI.other.copy(
+                        hideLockscreenEmergencyButton = event.value
+                    )
+                )
+            )
+
             is SystemUIEvent.Other.CustomPowerMenu -> {
                 preference.copy(
                     systemUI = preference.systemUI.copy(
