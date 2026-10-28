@@ -454,6 +454,10 @@ class Main : XposedModule() {
                     QS.addVolumeProgressToQsBar()
                 }
 
+                if (!preference.systemUI.qs.qsExpandableArea) {
+                    QS.removeExpandableArea()
+                }
+
                 if (preference.systemUI.qs.showTraditionalChineseDateOnQS) {
                     QS.showTraditionalChineseDateOnQS()
                 }

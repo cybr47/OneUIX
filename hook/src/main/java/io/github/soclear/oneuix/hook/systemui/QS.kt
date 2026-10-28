@@ -304,6 +304,68 @@ object QS {
             }
         }
 
+    /**
+     * One UI 9 (Compose QS): the "Expandable area" is the panel item whose GridTileItem type is
+     * "QuickTileBox". Strip it from the panel item store's lists right after the store changes them.
+     * Event-driven only: nothing runs unless Samsung itself updates the layout.
+     */
+    context(xposedModule: XposedModule)
+    fun removeExpandableArea() = afterAttachTry(ONE_UI_VERSION >= 90000) {
+        try {
+            val base = "com.android.systemui.samsung.quicksetting"
+            val storeClass = classLoader.loadClass("$base.ui.panel.PanelItemStoreImpl")
+            val panelItemClass = classLoader.loadClass("$base.domain.model.QSPanelItem")
+            val gridItemClass = classLoader.loadClass("$base.domain.model.items.GridTileItem")
+            val mutableFlowClass = classLoader.loadClass("kotlinx.coroutines.flow.MutableStateFlow")
+            val itemField = panelItemClass.getDeclaredField("gridTileItem").apply { isAccessible = true }
+            val getType = gridItemClass.getMethod("getType")
+            val getValue = mutableFlowClass.getMethod("getValue")
+            val setValue = mutableFlowClass.getMethod("setValue", Any::class.java)
+            val flowFields = listOf(
+                "_qsPanelItems", "_portraitPanelItems", "_landscapePanelItems",
+                "_coverPanelItems", "_portraitArrangementPanelItems"
+            ).mapNotNull { name ->
+                runCatching { storeClass.getDeclaredField(name).apply { isAccessible = true } }.getOrNull()
+            }
+            check(flowFields.isNotEmpty()) { "No panel item flows in ${storeClass.name}" }
+
+            fun isExpandableArea(item: Any?): Boolean {
+                val grid = item?.let { itemField.get(it) } ?: return false
+                return getType.invoke(grid) == "QuickTileBox"
+            }
+
+            fun strip(store: Any) {
+                for (field in flowFields) {
+                    val flow = field.get(store) ?: continue
+                    val list = getValue.invoke(flow) as? List<*> ?: continue
+                    if (list.any(::isExpandableArea)) {
+                        setValue.invoke(flow, list.filterNot(::isExpandableArea))
+                    }
+                }
+            }
+
+            storeClass.declaredMethods
+                .filter {
+                    !java.lang.reflect.Modifier.isStatic(it.modifiers) && it.returnType == Void.TYPE &&
+                        (it.name.startsWith("update") || it.name.startsWith("map") ||
+                            it.name.startsWith("arrange") || it.name.startsWith("set"))
+                }
+                .forEach { method ->
+                    xposedModule.hook(method).intercept { chain ->
+                        val result = chain.proceed()
+                        try {
+                            strip(chain.thisObject)
+                        } catch (t: Throwable) {
+                            xlog(t)
+                        }
+                        result
+                    }
+                }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+    }
+
     context(xposedModule: XposedModule)
     fun alwaysShowTimeDateOnQs() =
         afterAttachTry(Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && ONE_UI_VERSION < 80500) {
