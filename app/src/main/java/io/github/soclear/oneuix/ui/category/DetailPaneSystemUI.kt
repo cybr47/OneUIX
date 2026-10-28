@@ -814,6 +814,17 @@ fun DetailPaneSystemUI(
                     }
                 )
             }
+            if (ONE_UI_VERSION >= 90000) {
+                SwitchItem(
+                    icon = ImageVector.vectorResource(id = R.drawable.expand),
+                    title = stringResource(id = R.string.removableQsExpandableArea_title),
+                    summary = stringResource(id = R.string.removableQsExpandableArea_summary),
+                    checked = uiState.qs.removableQsExpandableArea,
+                    onCheckedChange = {
+                        onEvent(SystemUIEvent.QS.RemovableQsExpandableArea(it))
+                    }
+                )
+            }
             SwitchItem(
                 icon = ImageVector.vectorResource(id = R.drawable.today),
                 title = stringResource(id = R.string.showTraditionalChineseDateOnQS_title),
@@ -1248,6 +1259,9 @@ sealed interface SystemUIEvent {
 
         @JvmInline
         value class QSClockTextSize(val value: Float) : QS
+
+        @JvmInline
+        value class RemovableQsExpandableArea(val value: Boolean) : QS
     }
 
     sealed interface AOD : SystemUIEvent {
@@ -1818,6 +1832,16 @@ private fun SettingViewModel.onQSEvent(event: SystemUIEvent.QS) {
                     systemUI = preference.systemUI.copy(
                         qs = preference.systemUI.qs.copy(
                             addVolumeProgressToQsBar = event.value
+                        )
+                    )
+                )
+            }
+
+            is SystemUIEvent.QS.RemovableQsExpandableArea -> {
+                preference.copy(
+                    systemUI = preference.systemUI.copy(
+                        qs = preference.systemUI.qs.copy(
+                            removableQsExpandableArea = event.value
                         )
                     )
                 )

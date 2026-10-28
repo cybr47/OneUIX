@@ -304,6 +304,24 @@ object QS {
             }
         }
 
+    /**
+     * One UI 9 (Compose QS): the Expandable area is QuickTileBox, whose isRemovable() is a hard
+     * false. That flag alone decides whether edit mode draws the minus button; the button's action
+     * just drops the item from the panel list. No other hook, no polling.
+     */
+    context(xposedModule: XposedModule)
+    fun makeExpandableAreaRemovable() = afterAttachTry(ONE_UI_VERSION >= 90000) {
+        try {
+            val boxClass = classLoader.loadClass(
+                "com.android.systemui.samsung.quicksetting.domain.model.items.QuickTileBox"
+            )
+            val method = boxClass.getDeclaredMethod("isRemovable")
+            xposedModule.hook(method).intercept { true }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+    }
+
     context(xposedModule: XposedModule)
     fun alwaysShowTimeDateOnQs() =
         afterAttachTry(Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && ONE_UI_VERSION < 80500) {

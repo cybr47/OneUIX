@@ -71,6 +71,8 @@
     <string name="hideDeviceControlQsTile_title">Hide Device Control in Quick Settings</string>
     <string name="hideSmartViewQsTile_title">Hide Smart View in Quick Settings</string>
     <string name="alwaysExpandQsTileChunk_title">Always expand Quick Settings tile chunk</string>
+    <string name="removableQsExpandableArea_title">Make QS Expandable area removable</string>
+    <string name="removableQsExpandableArea_summary">Adds the minus button to the Expandable area in QS edit mode so it can be removed. Remove its tiles first.</string>
     <string name="alwaysShowTimeDateOnQs_title">Always show time and date in QS panel</string>
     <string name="setStatusBarMaxNotificationIcons_title">Modify maximum number of notification icons in status bar</string>
     <string name="setQsClockMonospaced_title">Set Quick Settings clock to monospaced font</string>
