@@ -204,7 +204,7 @@
 - Lift FCM network limit
 - Keep screen off when unplugged
 - Disable Samsung Writing Toolkit globally
-- Remove screenshot and screen recording restrictions
+- Remove screenshot and screen recording restrictions ([Samsung Capture test setup](docs/smart-capture-recording.md))
 
 #### System UI
 

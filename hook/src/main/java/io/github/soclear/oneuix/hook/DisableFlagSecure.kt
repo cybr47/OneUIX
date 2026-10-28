@@ -3,9 +3,12 @@ package io.github.soclear.oneuix.hook
 import android.annotation.SuppressLint
 import android.hardware.display.DisplayManager
 import android.os.Build
+import android.util.Log
 import android.view.SurfaceControl
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
+import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.hook.util.xlog
 import java.util.function.BiConsumer
 import java.util.function.BiPredicate
 
@@ -20,6 +23,7 @@ object DisableFlagSecure {
         hookScreenCapture(classLoader)
         hookScreenshotHardwareBuffer(classLoader)
         hookOneUI(classLoader)
+        hookSamsungRecordingDisplay(classLoader)
         hookVirtualDisplayAdapter(classLoader)
         hookDisplayControl(classLoader)
         hookDetection(classLoader)
@@ -54,6 +58,18 @@ object DisableFlagSecure {
                 }
             }
         }
+        // These callers may have an inlined copy of a display-creation method.
+        // Keep this independent of the screenshot deoptimizations above.
+        runCatching {
+            deopt(
+                classLoader.loadClass("com.android.server.display.DisplayManagerService"),
+                "createVirtualDisplayInternal", "createVirtualDisplayLocked"
+            )
+            deopt(
+                classLoader.loadClass("com.android.server.display.VirtualDisplayAdapter"),
+                "createVirtualDisplayLocked"
+            )
+        }.onFailure { xlog("Secure recording: display deoptimization unavailable", it, Log.WARN) }
     }
 
     context(xposedModule: XposedModule)
@@ -130,23 +146,52 @@ object DisableFlagSecure {
     }
 
     context(xposedModule: XposedModule)
-    private fun hookVirtualDisplayAdapter(classLoader: ClassLoader) = runCatching {
-        classLoader.loadClass("com.android.server.display.VirtualDisplayAdapter").declaredMethods
-            .filter { it.name == "createVirtualDisplayLocked" }.forEach { method ->
-                xposedModule.hook(method).intercept { chain ->
-                    val caller = chain.args.getOrNull(2) as? Int ?: 0
-                    if (caller < 10000 || chain.args.getOrNull(1) != null) {
-                        for (i in 3 until chain.args.size) {
-                            val flags = chain.args[i] as? Int ?: continue
-                            val newArgs = chain.args.toTypedArray()
-                            newArgs[i] = flags or DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE
-                            return@intercept chain.proceed(newArgs)
-                        }
-                    }
-                    chain.proceed()
+    private fun hookSamsungRecordingDisplay(classLoader: ClassLoader) =
+        hookVirtualDisplayFlags(classLoader, "com.android.server.display.DisplayManagerService", true)
+
+    context(xposedModule: XposedModule)
+    private fun hookVirtualDisplayAdapter(classLoader: ClassLoader) =
+        hookVirtualDisplayFlags(classLoader, "com.android.server.display.VirtualDisplayAdapter", false)
+
+    context(xposedModule: XposedModule)
+    private fun hookVirtualDisplayFlags(
+        classLoader: ClassLoader,
+        className: String,
+        smartCaptureOnly: Boolean
+    ) = runCatching {
+        val methods = classLoader.loadClass(className).declaredMethods.mapNotNull { method ->
+            SecureRecordingCompatibility.virtualDisplayFlagsIndex(
+                method.name, method.parameterTypes.map { it.name }
+            )?.let { method to it }
+        }
+        check(methods.isNotEmpty()) { "No supported $className.createVirtualDisplayLocked overload" }
+        methods.forEach { (method, flagsIndex) ->
+            xposedModule.hook(method).intercept { chain ->
+                val caller = chain.args.getOrNull(2) as? Int ?: return@intercept chain.proceed()
+                val projection = chain.args.getOrNull(1)
+                val isSmartCapture = chain.args.getOrNull(3) == Package.SMART_CAPTURE
+                if (smartCaptureOnly) {
+                    if (!isSmartCapture || projection == null) return@intercept chain.proceed()
+                } else if (caller >= 10000 && projection == null) {
+                    return@intercept chain.proceed()
                 }
+                val flags = chain.args.getOrNull(flagsIndex) as? Int
+                    ?: return@intercept chain.proceed()
+                val secureFlags = flags or DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE
+                if (smartCaptureOnly) {
+                    xlog(
+                        "Smart Capture: system display flags 0x${flags.toString(16)} -> 0x${secureFlags.toString(16)}",
+                        priority = Log.INFO
+                    )
+                }
+                if (secureFlags == flags) return@intercept chain.proceed()
+                val newArgs = chain.args.toTypedArray()
+                newArgs[flagsIndex] = secureFlags
+                chain.proceed(newArgs)
             }
-    }
+        }
+        xlog("Secure recording: hooked $className (${methods.size})", priority = Log.INFO)
+    }.onFailure { xlog("Secure recording: display flags hook unavailable for $className", it, Log.WARN) }
 
     context(xposedModule: XposedModule)
     private fun hookDisplayControl(classLoader: ClassLoader) = runCatching {
@@ -154,29 +199,38 @@ object DisableFlagSecure {
             classLoader.loadClass("com.android.server.display.DisplayControl")
         }.getOrElse { SurfaceControl::class.java }
         val systemServerCl = displayClass.classLoader
-        displayClass.declaredMethods
+        val methods = displayClass.declaredMethods
             .filter {
-                (it.name == "createVirtualDisplay" || it.name == "createDisplay") &&
-                        it.parameterTypes.size == 2 && it.parameterTypes[1] == Boolean::class.javaPrimitiveType
-            }.forEach { method ->
-                xposedModule.hook(method).intercept { chain ->
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        val fromVDA = Throwable().stackTrace.any { frame ->
-                            frame.methodName == "createVirtualDisplayLocked" &&
-                                    runCatching {
-                                        classLoader.loadClass(frame.className).classLoader == systemServerCl
-                                    }.getOrDefault(
-                                        false
-                                    )
-                        }
-                        if (fromVDA) return@intercept chain.proceed()
-                    }
-                    val newArgs = chain.args.toTypedArray()
-                    newArgs[1] = true
-                    chain.proceed(newArgs)
-                }
+                SecureRecordingCompatibility.isDisplayControlCreation(
+                    it.name, it.parameterTypes.map { parameter -> parameter.name }
+                )
             }
-    }
+        check(methods.isNotEmpty()) { "No supported DisplayControl display creation overload" }
+        methods.forEach { method ->
+            xposedModule.hook(method).intercept { chain ->
+                // Extend the newer overload only for Samsung's recorder. Keep
+                // the existing two-argument behavior for other display users.
+                if (method.parameterCount == 4 && chain.args.firstOrNull() != "ScreenRecorder") {
+                    return@intercept chain.proceed()
+                }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val fromVDA = Throwable().stackTrace.any { frame ->
+                        frame.methodName == "createVirtualDisplayLocked" &&
+                                runCatching {
+                                    classLoader.loadClass(frame.className).classLoader == systemServerCl
+                                }.getOrDefault(
+                                    false
+                                )
+                    }
+                    if (fromVDA) return@intercept chain.proceed()
+                }
+                val newArgs = chain.args.toTypedArray()
+                newArgs[1] = true
+                chain.proceed(newArgs)
+            }
+        }
+        xlog("Secure recording: hooked DisplayControl (${methods.size})", priority = Log.INFO)
+    }.onFailure { xlog("Secure recording: DisplayControl hook unavailable", it, Log.WARN) }
 
     context(xposedModule: XposedModule)
     private fun hookDetection(classLoader: ClassLoader) {

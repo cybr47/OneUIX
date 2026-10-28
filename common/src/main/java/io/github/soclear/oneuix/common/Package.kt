@@ -22,6 +22,7 @@ object Package {
     const val PHOTO_RETOUCHING = "com.sec.android.mimage.photoretouching"
     const val SETTINGS = "com.android.settings"
     const val SKETCH_BOOK = "com.samsung.android.app.sketchbook"
+    const val SMART_CAPTURE = "com.samsung.android.app.smartcapture"
     const val SM_CN = "com.samsung.android.sm_cn"
     const val STORE = "com.sec.android.app.samsungapps"
     const val SYSTEMUI = "com.android.systemui"
