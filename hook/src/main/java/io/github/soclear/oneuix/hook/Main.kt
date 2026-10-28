@@ -268,6 +268,12 @@ class Main : XposedModule() {
                 }
             }
 
+            Package.SMART_CAPTURE if (processName == "${Package.SMART_CAPTURE}:screenrecorder") -> {
+                if (preference.android.disableFlagSecure) {
+                    SecureRecordingDiagnostics.hookSmartCapture(classLoader)
+                }
+            }
+
             Package.SM_CN -> {
                 if (preference.settings.spoofPhoneStatusAsOfficial) {
                     SMCN.spoofPhoneStatusAsOfficial()
@@ -624,6 +630,7 @@ class Main : XposedModule() {
 
         if (preference.android.disableFlagSecure) {
             DisableFlagSecure.hookSystemServer(classLoader)
+            SecureRecordingDiagnostics.hookSystemServer(classLoader)
         }
     }
 }
