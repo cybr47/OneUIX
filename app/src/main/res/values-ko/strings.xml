@@ -50,6 +50,7 @@
     <string name="immersiveModeQsTile_title">몰입 모드 빠른 설정 버튼 활성화</string>
     <string name="rootImmersiveModeQsTile_summary">루팅(Root) 권한이 필요합니다. 버튼을 수동으로 추가한 후 눌러서 상태바를 숨기거나 다시 표시할 수 있습니다</string>
     <string name="outdoorModeQsTile_label">야외 모드</string>
+    <string name="autoBrightnessQsTile_label">자동 밝기</string>
     <string name="setStatusBarClockFormat_title">상태바 날짜 및 시간 형식 설정</string>
     <string name="setStatusBarClockTextScale_title">상태바 시계 크기 배율 설정</string>
     <string name="updateStatusBarClockEverySecond_title">상태바 시계 초 단위 업데이트</string>
@@ -81,6 +82,9 @@
     <string name="redirect_custom_tab_title">링크를 항상 외부 삼성 인터넷으로 열기</string>
     <string name="redirect_custom_tab_summary">삼성 인터넷이 기본 브라우저로 설정되어 있어도 많은 앱들이 인앱 \'삼성 인터넷 커스텀 탭\'으로 링크를 엽니다. 이 기능을 활성화하면 인앱 탭을 우회하여 전체 기능이 포함된 외부 삼성 인터넷 앱으로 링크를 강제 전환합니다.</string>
     <string name="blockGalaxyStoreAds_title">Galaxy Store 광고 제거</string>
+    <string name="galaxyStoreRegion_title">Galaxy Store SIM 통신사 코드 (MCC+MNC)</string>
+    <string name="galaxyStoreRegion_summary">앞자리 0을 유지하여 5~6자리 숫자를 입력하고 확인을 눌러 저장하세요. 비워 두면 변경하지 않습니다. 적용하려면 Galaxy Store를 다시 시작하세요.</string>
+    <string name="galaxyStoreRegion_reference">국가 및 통신사 코드 조회 (ITU)</string>
     <string name="blockGalaxyStoreAds_summary">시작 화면(스플래시) 광고, 추천 광고/팝업, 설치 시 연령 제한 팝업을 제거합니다</string>
     <string name="supportAllCameraMenu_title">카메라 모든 메뉴 표시</string>
     <string name="supportAllCameraMenu_summary">셔터음, 자동 HDR, Log 촬영, 프레임 워터마크</string>
@@ -143,6 +147,7 @@
     <string name="supportOutdoorMode_title">야외 모드 잠금 해제</string>
     <string name="disablePinVerifyPer72h_title">72시간마다 PIN 번호 인증 요구 비활성화</string>
     <string name="hideAODStatusBar_title">AOD 상태바 숨기기</string>
+    <string name="hideAODChargingInfo_title">AOD 충전 정보 숨기기</string>
     <string name="aodLockSupportLunar_title">AOD/잠금 화면에 음력 표시</string>
     <string name="enableChineseHolidayDisplay_title">캘린더에 중국 공휴일 표시</string>
     <string name="supportBlockMessage_title">메시지 차단 기능 지원</string>
@@ -157,6 +162,7 @@
     <string name="spoofPhoneStatusAsOfficial_summary">설정 -&gt; 휴대전화 정보 -&gt; 상태 정보</string>
     <string name="noAIWatermark_title">포토 에디터 AI 워터마크 비활성화</string>
     <string name="noAIWatermark_summary">포토 에디터 및 크리에이티브 스튜디오 포함</string>
+    <string name="hideSamsungHealthDiscover_title">발견 탭 숨기기</string>
     <string name="bypassHealthMonitorCountryCheck_title">삼성 헬스 모니터 국가 제한 우회</string>
     <string name="bypassHealthMonitorCountryCheck_summary">지원되지 않는 국가에서도 삼성 헬스 모니터 앱을 사용할 수 있도록 허용합니다</string>
     <string name="useSPenGoogleTranslate_title">S펜 번역에 구글 번역 사용</string>
@@ -183,8 +189,8 @@
     <string name="liftFcmNetworkLimit_title">FCM 네트워크 제한 해제</string>
     <string name="liftFcmNetworkLimit_summary">중국(홍콩 포함) 펌웨어에서 GMS/FCM 푸시 네트워크 연결을 제한하는 정책을 제거합니다</string>
     <string name="disableScreenWakeOnPowerUnplugged_title">충전기 분리 시 화면 켜짐 방지</string>
-    <string name="disableWritingToolkitGlobally_title">글쓰기 도구 전체 비활성화</string>
-    <string name="disableWritingToolkitGlobally_summary">시스템 프레임워크를 통해 모든 앱의 텍스트 선택 메뉴에서 Samsung 글쓰기 도구를 제거합니다</string>
+    <string name="disableWritingToolkit_title">글쓰기 도구 비활성화</string>
+    <string name="disableWritingToolkit_summary">선택한 앱을 모듈 적용 범위에 추가하고 다시 시작하면 텍스트 선택 메뉴에서 Samsung 글쓰기 도구가 제거됩니다</string>
     <string name="disableFlagSecure_title">FLAG_SECURE 비활성화</string>
     <string name="hideScreenshotDetection_title">앱에서 스크린샷 감지 숨기기</string>
     <string name="hideScreenshotDetection_summary">선택한 앱을 모듈 적용 범위에 추가한 후 다시 시작하세요. 스크린샷 콜백과 스크린샷으로 식별된 변경 알림만 차단합니다. 사진 선택기에서 스크린샷을 볼 수 있으며 일반 사진 알림은 유지됩니다</string>
@@ -216,4 +222,10 @@
     <string name="nfc_note">메모(선택 사항)</string>
     <string name="nfc_save">저장 / 업데이트</string>
     <string name="nfc_delete">삭제</string>
+    <string name="alignStatusBarContentToTop_title">상태바 내용을 맨 위에 정렬</string>
+    <string name="alignStatusBarContentToTop_summary">세로 모드에서만 적용됩니다. 상태바 높이와 앱의 상단 여백은 유지됩니다.</string>
+    <string name="hideLockscreenEmergencyButton_title">잠금 화면 긴급 전화 버튼 숨기기</string>
+    <string name="hideLockscreenEmergencyButton_summary">잠금 해제 화면의 긴급 전화 바로가기를 제거하여 긴급 전화 접근이 어려워집니다.</string>
+    <string name="modifyDockBottomPadding_title">홈 화면 하단 독 여백 변경</string>
+    <string name="modifyDockBottomPadding_summary">휴대전화 세로 모드: %1$.1f dp. 0으로 설정하면 하단 여백이 제거됩니다. 제스처 영역과 겹칠 수 있습니다.</string>
 </resources>

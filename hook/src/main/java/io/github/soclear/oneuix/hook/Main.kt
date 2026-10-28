@@ -46,6 +46,12 @@ class Main : XposedModule() {
         }
         val preference = savedPreference ?: return@with
 
+        if (preference.other.disableWritingToolkit &&
+            packageName in preference.other.disableWritingToolkitPackages
+        ) {
+            Other.disableWritingToolkit()
+        }
+
         if (preference.other.hideScreenshotDetection &&
             packageName in preference.other.hideScreenshotDetectionPackages
         ) {
@@ -126,6 +132,12 @@ class Main : XposedModule() {
                 }
             }
 
+            Package.HEALTH -> {
+                if (preference.other.hideSamsungHealthDiscover) {
+                    SamsungHealth.hideDiscover()
+                }
+            }
+
             Package.HEALTH_MONITOR -> {
                 if (preference.other.bypassHealthMonitorCountryCheck) {
                     HealthMonitor.bypassCountryCheck()
@@ -146,6 +158,11 @@ class Main : XposedModule() {
                         preference.systemUI.statusBar.hideClockOnHome)) {
                     LauncherStatusBar.install()
                 }
+
+                if (preference.other.modifyDockBottomPadding) {
+                    Launcher.setDockBottomPadding(preference.other.dockBottomPaddingDp)
+                }
+
                 if (preference.other.showMemoryUsageInRecents) {
                     Launcher.showMemoryUsageInRecents()
                 }
@@ -258,6 +275,9 @@ class Main : XposedModule() {
             }
 
             Package.STORE -> {
+                if (preference.other.setGalaxyStoreSimOperator) {
+                    GalaxyStore.setRegion(preference.other.galaxyStoreSimOperator)
+                }
                 if (preference.other.blockGalaxyStoreAds) {
                     GalaxyStore.blockGalaxyStoreAds()
                 }
@@ -291,7 +311,19 @@ class Main : XposedModule() {
                     val heightScale = if (preference.systemUI.statusBar.setBatteryIconHeightScale) {
                         preference.systemUI.statusBar.batteryIconHeightScale
                     } else null
-                    StatusBar.setBatteryIconScale(widthScale, heightScale)
+                    // One UI 9: ComposeBatteryAppearance already scales the pill inside its layout
+                    // state; applying the view-level scale as well would scale it twice.
+                    if (ONE_UI_VERSION < 90000) {
+                        StatusBar.setBatteryIconScale(widthScale, heightScale)
+                    }
+                }
+
+                if (preference.systemUI.statusBar.alignStatusBarContentToTop) {
+                    StatusBar.alignContentToTop()
+                }
+
+                if (preference.systemUI.other.hideLockscreenEmergencyButton) {
+                    SystemUIOther.hideLockscreenEmergencyButton()
                 }
 
                 if (preference.systemUI.statusBar.hideBatteryPercentageSign) {
@@ -462,6 +494,10 @@ class Main : XposedModule() {
                     QS.showTraditionalChineseDateOnQS()
                 }
 
+                if (preference.systemUI.aod.hideAODChargingInfo) {
+                    AOD.hideAODChargingInfo()
+                }
+
                 if (preference.systemUI.aod.hideAODStatusBar) {
                     AOD.hideAODStatusBar()
                 }
@@ -555,10 +591,6 @@ class Main : XposedModule() {
 
     override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) = with(param) {
         val preference = PreferenceProvider.loadPreference() ?: return@with
-
-        if (preference.android.disableWritingToolkitGlobally) {
-            Android.disableWritingToolkitGlobally()
-        }
 
         if (preference.android.disablePinVerifyPer72h) {
             Android.disablePinVerifyPer72h()
