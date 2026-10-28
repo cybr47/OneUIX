@@ -106,7 +106,6 @@ data class Preference(
             val showTraditionalChineseDateOnQS: Boolean = false,
             val modifyQSClockTextSize: Boolean = false,
             val qsClockTextSize: Float = 32f,
-            val qsExpandableArea: Boolean = true,
         ) {
             val audioEraserQsTileEnabled: Boolean
                 get() = hideAudioEraserBanner && audioEraserQsTile
