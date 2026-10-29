@@ -16,6 +16,8 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">숫자는 유지하고 % 기호만 숨깁니다</string>
     <string name="hideBatteryIcon_title">배터리 아이콘 숨기기</string>
     <string name="hideBatteryIcon_summary">배터리 아이콘을 숨깁니다. 충전기가 연결되었을 때는 충전 아이콘이 표시되며, 배터리 백분율 표시에는 영향을 주지 않습니다.</string>
+    <string name="hideWifiGenerationDigit_title">Wi-Fi 세대 숫자 숨기기</string>
+    <string name="hideWifiGenerationDigit_summary">Wi-Fi 아이콘 옆의 숫자(예: 5, 6, 7)를 숨기고 기본 Wi-Fi 아이콘을 표시합니다.</string>
     <string name="addBatteryLevelText_title">배터리 잔량 텍스트 표시</string>
     <string name="addBatteryLevelText_summary">아이콘 옆에 배터리 잔량을 텍스트로 표시합니다 (예: 96%)</string>
     <string name="hideBatteryLevelTextPercentageSign_title">백분율 기호 숨기기</string>

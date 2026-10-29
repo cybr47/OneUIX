@@ -283,6 +283,17 @@ fun DetailPaneSystemUI(
                 onEvent(SystemUIEvent.StatusBar.SupportRealTimeNetworkSpeed(it))
             }
         )
+        if (ONE_UI_VERSION >= 90000) {
+            SwitchItem(
+                icon = ImageVector.vectorResource(id = R.drawable.net_speed),
+                title = stringResource(id = R.string.hideWifiGenerationDigit_title),
+                summary = stringResource(id = R.string.hideWifiGenerationDigit_summary),
+                checked = uiState.statusBar.hideWifiGenerationDigit,
+                onCheckedChange = {
+                    onEvent(SystemUIEvent.StatusBar.HideWifiGenerationDigit(it))
+                }
+            )
+        }
         Column {
             var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -1013,6 +1024,9 @@ sealed interface SystemUIEvent {
         value class HideBatteryIcon(val value: Boolean) : StatusBar
 
         @JvmInline
+        value class HideWifiGenerationDigit(val value: Boolean) : StatusBar
+
+        @JvmInline
         value class AddBatteryLevelText(val value: Boolean) : StatusBar
 
         @JvmInline
@@ -1324,6 +1338,16 @@ private fun SettingViewModel.onStatusBarEvent(event: SystemUIEvent.StatusBar) {
                     systemUI = preference.systemUI.copy(
                         statusBar = preference.systemUI.statusBar.copy(
                             hideBatteryIcon = event.value
+                        )
+                    )
+                )
+            }
+
+            is SystemUIEvent.StatusBar.HideWifiGenerationDigit -> {
+                preference.copy(
+                    systemUI = preference.systemUI.copy(
+                        statusBar = preference.systemUI.statusBar.copy(
+                            hideWifiGenerationDigit = event.value
                         )
                     )
                 )

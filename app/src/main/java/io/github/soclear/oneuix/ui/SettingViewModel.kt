@@ -15,6 +15,7 @@ import io.github.soclear.oneuix.R
 import io.github.soclear.oneuix.common.IgnoreUnknownKeysJson
 import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.category.Category
 import io.github.soclear.oneuix.ui.category.CategoryAppInfo

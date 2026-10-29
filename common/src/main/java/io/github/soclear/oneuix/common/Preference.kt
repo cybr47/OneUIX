@@ -50,6 +50,7 @@ data class Preference(
             val addBatteryLevelText: Boolean = false,
             val hideBatteryLevelTextPercentageSign: Boolean = false,
             val hideBatteryLevelTextChargingIcon: Boolean = false,
+            val hideWifiGenerationDigit: Boolean = false,
             val supportRealTimeNetworkSpeed: Boolean = true,
             val networkSpeedLayout: Int = 0,
             val showNetworkSpeedArrows: Boolean = true,
