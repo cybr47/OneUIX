@@ -11,6 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -19,6 +25,7 @@ import io.github.soclear.oneuix.R
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.SettingViewModel
 import io.github.soclear.oneuix.ui.component.SwitchItem
+import kotlin.math.roundToInt
 
 @Composable
 fun DetailPaneLauncher(
@@ -27,6 +34,24 @@ fun DetailPaneLauncher(
     modifier: Modifier = Modifier
 ) {
     PackagePane(modifier) {
+        Spacer(modifier = Modifier.height(30.dp))
+        Button(
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            onClick = {
+                // Stop One UI Home, then start Home again so the screen is not left empty.
+                runCatching {
+                    Runtime.getRuntime().exec(
+                        arrayOf(
+                            "su", "-c",
+                            "am force-stop com.sec.android.app.launcher; " +
+                                "am start -a android.intent.action.MAIN -c android.intent.category.HOME"
+                        )
+                    )
+                }
+            }
+        ) {
+            Text(text = stringResource(R.string.restartOneUIHome))
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             SwitchItem(
                 icon = ImageVector.vectorResource(id = R.drawable.memory),
@@ -54,6 +79,48 @@ fun DetailPaneLauncher(
             checked = uiState.hideAppsSearchBar,
             onCheckedChange = { onEvent(LauncherEvent.HideAppsSearchBar(it)) }
         )
+        SwitchItem(
+            icon = ImageVector.vectorResource(id = R.drawable.apps),
+            title = stringResource(id = R.string.searchBarColors_title),
+            summary = stringResource(id = R.string.searchBarColors_summary),
+            checked = uiState.searchBarColorsEnabled,
+            onCheckedChange = { onEvent(LauncherEvent.SearchBarColorsEnabled(it)) }
+        )
+        AnimatedVisibility(uiState.searchBarColorsEnabled) {
+            // Keep the value locally while dragging and save once on release, like the other sliders.
+            var color by remember { mutableFloatStateOf(uiState.searchBarColorLevel.coerceIn(0f, 1f)) }
+            var transparency by remember {
+                mutableFloatStateOf(uiState.searchBarBackgroundTransparency.coerceIn(0f, 1f))
+            }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text(
+                    stringResource(
+                        id = R.string.searchBarColor_value,
+                        stringResource(id = R.string.searchBarColor_title),
+                        (color * 100).roundToInt()
+                    )
+                )
+                Slider(
+                    value = color,
+                    onValueChange = { color = it },
+                    valueRange = 0f..1f,
+                    onValueChangeFinished = { onEvent(LauncherEvent.SearchBarColorLevel(color)) }
+                )
+                Text(
+                    stringResource(
+                        id = R.string.searchBarColor_value,
+                        stringResource(id = R.string.searchBarTransparency_title),
+                        (transparency * 100).roundToInt()
+                    )
+                )
+                Slider(
+                    value = transparency,
+                    onValueChange = { transparency = it },
+                    valueRange = 0f..1f,
+                    onValueChangeFinished = { onEvent(LauncherEvent.SearchBarTransparency(transparency)) }
+                )
+            }
+        }
         SwitchItem(
             icon = ImageVector.vectorResource(id = R.drawable.position_bottom_right),
             title = stringResource(id = R.string.removeShortcutBadge_title),
@@ -107,6 +174,15 @@ sealed interface LauncherEvent {
     value class HideAppsSearchBar(val value: Boolean) : LauncherEvent
 
     @JvmInline
+    value class SearchBarColorsEnabled(val value: Boolean) : LauncherEvent
+
+    @JvmInline
+    value class SearchBarColorLevel(val value: Float) : LauncherEvent
+
+    @JvmInline
+    value class SearchBarTransparency(val value: Float) : LauncherEvent
+
+    @JvmInline
     value class RemoveShortcutBadge(val value: Boolean) : LauncherEvent
 }
 
@@ -145,6 +221,9 @@ fun SettingViewModel.onLauncherEvent(event: LauncherEvent) {
                 )
             )
 
+            is LauncherEvent.SearchBarColorsEnabled -> preference.copy(other = preference.other.copy(searchBarColorsEnabled = event.value))
+            is LauncherEvent.SearchBarColorLevel -> preference.copy(other = preference.other.copy(searchBarColorLevel = event.value))
+            is LauncherEvent.SearchBarTransparency -> preference.copy(other = preference.other.copy(searchBarBackgroundTransparency = event.value))
             is LauncherEvent.RemoveShortcutBadge -> preference.copy(
                 other = preference.other.copy(
                     removeShortcutBadge = event.value
