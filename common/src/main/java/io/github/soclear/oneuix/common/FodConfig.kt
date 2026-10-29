@@ -5,10 +5,14 @@ import java.io.InputStream
 import java.security.MessageDigest
 
 @Serializable
+enum class FodIconFormat { PNG, SVG }
+
+@Serializable
 data class FodConfig(
     val hideIcon: Boolean = false,
     val iconSlot: Int = -1,
     val iconDigest: String = "",
+    val iconFormat: FodIconFormat = FodIconFormat.PNG,
     val sizePercent: Int = 100,
 ) {
     val scale: Float get() = sizePercent.coerceIn(50, 150) / 100f
@@ -16,7 +20,7 @@ data class FodConfig(
         get() = iconSlot in 0..1 && iconDigest.length == 64 &&
             iconDigest.all { it in '0'..'9' || it in 'a'..'f' }
     val iconFileName: String?
-        get() = if (hasCustomIcon) fileName(iconSlot) else null
+        get() = if (hasCustomIcon) fileName(iconSlot, iconFormat) else null
 
     companion object {
         // A package-targeted notification only: receivers read the trusted remote file.
@@ -26,9 +30,10 @@ data class FodConfig(
         const val MAX_STORED_BYTES = 1100000
         const val MAX_STORED_SIDE = 512
 
-        fun fileName(slot: Int): String {
+        fun fileName(slot: Int, format: FodIconFormat = FodIconFormat.PNG): String {
             require(slot in 0..1)
-            return "fod-icon-$slot.png"
+            val extension = if (format == FodIconFormat.SVG) "svg" else "png"
+            return "fod-icon-$slot.$extension"
         }
 
         fun digest(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
