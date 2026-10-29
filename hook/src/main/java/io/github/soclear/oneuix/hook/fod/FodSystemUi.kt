@@ -14,7 +14,7 @@ object FodSystemUi {
     fun install(initial: FodConfig) = afterAttachTry(ONE_UI_VERSION >= 90000) {
         val runtime = FodRuntime(module, this, initial, loadIcon = false)
         val bridge = Bridge(module, classLoader, runtime)
-        // Use Samsung's SystemUI-facing visibility API so Biometrics stays unhooked.
+        // Hide-only uses SystemUI's native API; custom artwork keeps the window for the renderer.
         runtime.safely("Native fingerprint icon visibility hook is unsupported") { bridge.installIconVisibility() }
         // Firmware can use more than one presentation path; resolve each independently.
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
