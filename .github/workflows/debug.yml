@@ -2,6 +2,9 @@ name: Test Builds
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - Test
 
 concurrency:
   group: test-build-${{ github.ref }}
