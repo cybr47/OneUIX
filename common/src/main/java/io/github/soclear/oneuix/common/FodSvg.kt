@@ -11,7 +11,7 @@ object FodSvg {
     private val forbiddenXml = Regex("<!\\s*(DOCTYPE|ENTITY)\\b", RegexOption.IGNORE_CASE)
     private val activeContent = Regex("<\\s*(script|foreignObject)\\b", RegexOption.IGNORE_CASE)
     private val externalReference = Regex(
-        """(?:href|xlink:href)\s*=\s*['"]\s*(?:https?:|file:|content:|//)""",
+        """(?:(?:xlink:)?href\s*=\s*['"]\s*(?:https?:|file:|content:|data:|//)|url\(\s*['"]?\s*(?:https?:|file:|content:|data:|//)|@import\b)""",
         RegexOption.IGNORE_CASE,
     )
 
