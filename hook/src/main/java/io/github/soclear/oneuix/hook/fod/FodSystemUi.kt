@@ -43,7 +43,8 @@ object FodSystemUi {
             // hiding is enabled, replace it with the paired native hide request so the
             // sensor's ordinary authentication/listening lifecycle remains untouched.
             module.hook(show).intercept { chain ->
-                if (!runtime.state.config.hideIcon) {
+                if (!runtime.state.config.hideIcon || runtime.state.config.hasCustomIcon) {
+                    // Keep Samsung's FOD window alive when Biometrics draws replacement artwork.
                     chain.proceed()
                 } else {
                     val hidden = runCatching { hide.invoke(chain.thisObject); true }
