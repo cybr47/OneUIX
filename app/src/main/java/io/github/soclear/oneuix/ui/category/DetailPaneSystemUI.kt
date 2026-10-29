@@ -1084,7 +1084,7 @@ sealed interface SystemUIEvent {
     sealed interface Fod : SystemUIEvent {
         data class Enabled(val value: Boolean) : Fod
         data class Size(val value: Int) : Fod
-        data class SelectIcon(val slot: Int, val digest: String) : Fod
+        data class SelectIcon(val slot: Int, val digest: String, val format: FodIconFormat) : Fod
         data object RemoveIcon : Fod
     }
     sealed interface StatusBar : SystemUIEvent {
@@ -1335,8 +1335,8 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
             when (event) {
                 is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
                 is SystemUIEvent.Fod.Size -> current.copy(sizePercent = event.value.coerceIn(50, 150))
-                is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest)
-                SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "")
+                is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest, iconFormat = event.format)
+                SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "", iconFormat = FodIconFormat.PNG)
             }
         }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)
