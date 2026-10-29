@@ -3,13 +3,13 @@
     <string name="fod_title">Hide FOD icon</string>
     <string name="fod_summary">Hide the lock screen fingerprint icon and its hints. Fingerprint unlock stays available.</string>
     <string name="fod_replace">Replace FOD icon</string>
-    <string name="fod_png_summary">Use a transparent PNG, or leave the icon hidden.</string>
-    <string name="fod_choose">Choose PNG</string>
+    <string name="fod_png_summary">Use transparent PNG or SVG artwork, or leave the icon hidden.</string>
+    <string name="fod_choose">Choose image</string>
     <string name="fod_importing">Importing…</string>
     <string name="fod_remove">Remove</string>
     <string name="fod_preview">Fingerprint icon preview</string>
     <string name="fod_size">Size: %1$d%%</string>
     <string name="fod_reset_size">Reset to 100%</string>
-    <string name="fod_import_failed">Could not import the image. Choose a PNG under 8 MB and 8192 × 8192 pixels, and check that the module is active.</string>
-    <string name="fod_scope">Enable System UI and Biometrics (com.samsung.android.biometrics.app.setting) in this module’s LSPosed scope, then reboot once. Later changes apply automatically. 100% uses the stock icon size.</string>
+    <string name="fod_import_failed">Could not import the image. Choose a PNG under 8 MB and 8192 × 8192 pixels, or an SVG under 1.1 MB, and check that the module is active.</string>
+    <string name="fod_scope">Enable System UI and Biometrics (com.samsung.android.biometrics.app.setting) in this module’s LSPosed scope, then reboot once. Custom artwork uses one small Biometrics hook; parsing happens off the UI thread. 100% uses the stock icon size.</string>
 </resources>
