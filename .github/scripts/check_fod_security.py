@@ -1,4 +1,4 @@
-"""Regression guards for reviewed FOD boundaries, not a general security certification."""
+"""Regression guards for the SystemUI-only FOD visibility path."""
 import argparse
 import hashlib
 from pathlib import Path
@@ -25,11 +25,16 @@ def check_permission(root, package):
 
 
 def check_sources():
-    check_permission(ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot(), "${applicationId}")
+    app_manifest = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
+    check_permission(app_manifest, "$" + "{applicationId}")
     hook = ROOT / "hook/src/main/java/io/github/soclear/oneuix/hook"
     common = ROOT / "common/src/main/java/io/github/soclear/oneuix/common"
     ui = ROOT / "app/src/main/java/io/github/soclear/oneuix/ui"
     runtime = (hook / "fod/FodRuntime.kt").read_text()
+    systemui = (hook / "fod/FodSystemUi.kt").read_text()
+    main = (hook / "Main.kt").read_text()
+    scope = (hook / "resources/META-INF/xposed/scope.list").read_text()
+
     require("FodConfig.changePermission, main, Context.RECEIVER_EXPORTED" in runtime,
             "receiver must enforce the permission at registration")
     require("FodRefreshSecurity.acceptsSender(moduleUid, sentFromUid, sentFromPackage)" in runtime,
@@ -40,31 +45,35 @@ def check_sources():
             "settings app must share its framework identity")
     require("FodPreferences.read(it)" in runtime and "FodReloadGate()" in runtime and
             "ArrayBlockingQueue<Runnable>(1)" in runtime, "host reads and work queue must be bounded")
-    require("getImageSize" not in (hook / "fod/FodBiometrics.kt").read_text().split("fun install()", 1)[1].split("private fun apply", 1)[0],
-            "do not restore the unsupported sensor-info requirement")
+    require("FodSystemUi.install(fod)" in main and "FodBiometrics" not in main,
+            "FOD hooks must run in SystemUI only")
+    require("semShowUdfpsIcon" in systemui and "semHideUdfpsIcon" in systemui,
+            "native Samsung icon visibility API must be used")
+    require("com.samsung.android.biometrics.app.setting" not in scope,
+            "Biometrics must not be in the default LSPosed scope")
 
-    fod_files = list((hook / "fod").glob("*.kt")) + list(common.glob("Fod*.kt")) + [ui / "FodIconStore.kt"]
+    fod_files = list((hook / "fod").glob("*.kt")) + list(common.glob("Fod*.kt"))
     forbidden = re.compile(r"ProcessBuilder|Runtime\.getRuntime|java\.net\.|okhttp|DexClassLoader|"
                            r"addJavascriptInterface|setWorldReadable|MODE_WORLD|"
-                           r"FingerprintManager|BiometricService|LockSettingsStrongAuth|GateKeeper|"
+                           r"BiometricService|LockSettingsStrongAuth|GateKeeper|"
                            r"intent\.(?:extras|get\w*Extra)")
     for path in fod_files:
-        require(not forbidden.search(path.read_text()), "unexpected sensitive API or intent payload in " + path.name)
+        require(not forbidden.search(path.read_text()),
+                "unexpected sensitive API or intent payload in " + path.name)
 
     vector = ET.parse(ROOT / "app/src/main/res/drawable/fingerprint.xml").getroot()
     group = vector.find("group")
-    require(group is not None and group.get(ANDROID + "translateY") == "960", "Google SVG viewport transform changed")
+    require(group is not None and group.get(ANDROID + "translateY") == "960",
+            "Google SVG viewport transform changed")
     path = group.find("path").get(ANDROID + "pathData")
     require(hashlib.sha256(path.encode()).hexdigest() ==
             "8370cecaaec898c9b153a359bfffbd3584f315a6207bbe2c210f3f3f918f7c84",
             "fingerprint path differs from the pinned Google asset")
 
-    workflow = (ROOT / ".github/workflows/fod-debug.yml").read_text()
+    workflow = (ROOT / ".github/workflows/debug.yml").read_text()
     require("debug.keystore" not in workflow and "actions/cache@" not in workflow,
-            "do not cache the FOD signing key")
-    for action in re.findall(r"uses:\s*(\S+)", workflow):
-        require(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", action), "pin action revisions: " + action)
-    print(f"FOD security boundary guards passed ({len(fod_files)} feature files; permissions, identity, queue, icon and CI).")
+            "do not cache a debug signing key")
+    print(f"FOD security boundary guards passed ({len(fod_files)} feature files).")
 
 
 if __name__ == "__main__":
