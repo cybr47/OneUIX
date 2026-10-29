@@ -92,7 +92,7 @@ internal class FodRuntime(
         safely("Cannot register authenticated FOD refresh; restart the host to reload settings") {
             registerRefreshReceiver(context)
         }
-        requestReload()
+        requestReload(immediate = true)
     }
 
     private fun registerRefreshReceiver(context: Context) {
@@ -129,15 +129,15 @@ internal class FodRuntime(
 
     fun onChanged(listener: () -> Unit) { listeners.add(listener) }
 
-    private fun requestReload() {
-        if (reloadGate.request()) scheduleReload()
+    private fun requestReload(immediate: Boolean = false) {
+        if (reloadGate.request()) scheduleReload(if (immediate) 0L else 250L)
     }
 
-    private fun scheduleReload() {
+    private fun scheduleReload(delayMillis: Long = 250L) {
         if (scheduled) return
         scheduled = true
-        // No polling, unbounded queue, overlapping reads, or debounce starvation.
-        main.postDelayed(reload, 250)
+        // Initial reads start promptly; subsequent updates are coalesced without blocking UI.
+        main.postDelayed(reload, delayMillis)
     }
 
     fun safely(operation: String, action: () -> Unit) {
