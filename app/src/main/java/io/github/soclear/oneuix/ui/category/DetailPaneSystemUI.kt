@@ -38,7 +38,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import io.github.soclear.oneuix.R
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
-import io.github.soclear.oneuix.common.FodIconFormat
 import io.github.soclear.oneuix.common.PowerMenuAction
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.SettingViewModel
@@ -1084,9 +1083,6 @@ private fun powerMenuActionTitle(actionName: String): Int = when (actionName) {
 sealed interface SystemUIEvent {
     sealed interface Fod : SystemUIEvent {
         data class Enabled(val value: Boolean) : Fod
-        data class Size(val value: Int) : Fod
-        data class SelectIcon(val slot: Int, val digest: String, val format: FodIconFormat) : Fod
-        data object RemoveIcon : Fod
     }
     sealed interface StatusBar : SystemUIEvent {
         @JvmInline
@@ -1335,9 +1331,6 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
         is SystemUIEvent.Fod -> updateFod { current ->
             when (event) {
                 is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
-                is SystemUIEvent.Fod.Size -> current.copy(sizePercent = event.value.coerceIn(50, 150))
-                is SystemUIEvent.Fod.SelectIcon -> current.copy(iconSlot = event.slot, iconDigest = event.digest, iconFormat = event.format)
-                SystemUIEvent.Fod.RemoveIcon -> current.copy(iconSlot = -1, iconDigest = "", iconFormat = FodIconFormat.PNG)
             }
         }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)
