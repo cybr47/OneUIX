@@ -14,6 +14,8 @@ object FodSystemUi {
     fun install(initial: FodConfig) = afterAttachTry(ONE_UI_VERSION >= 90000) {
         val runtime = FodRuntime(module, this, initial, loadIcon = false)
         val bridge = Bridge(module, classLoader, runtime)
+        // Use Samsung's SystemUI-facing visibility API so Biometrics stays unhooked.
+        runtime.safely("Native fingerprint icon visibility hook is unsupported") { bridge.installIconVisibility() }
         // Firmware can use more than one presentation path; resolve each independently.
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
         runtime.safely("Fingerprint popup hook is unsupported") { bridge.installPopup() }
@@ -29,6 +31,28 @@ object FodSystemUi {
         private val popups = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
         private val toastTypes = WeakHashMap<View, String>()
         private val hiddenToasts = WeakHashMap<View, Float>()
+
+        fun installIconVisibility() {
+            val fingerprintManager = loader.loadClass("android.hardware.fingerprint.FingerprintManager")
+            val hide = fingerprintManager.getMethod("semHideUdfpsIcon")
+            val show = fingerprintManager.getMethod("semShowUdfpsIcon")
+            require(hide.parameterCount == 0 && hide.returnType == Void.TYPE)
+            require(show.parameterCount == 0 && show.returnType == Void.TYPE)
+
+            // Samsung's normal show request also clears the native hidden state. When
+            // hiding is enabled, replace it with the paired native hide request so the
+            // sensor's ordinary authentication/listening lifecycle remains untouched.
+            module.hook(show).intercept { chain ->
+                if (!runtime.state.config.hideIcon) {
+                    chain.proceed()
+                } else {
+                    val hidden = runCatching { hide.invoke(chain.thisObject); true }
+                        .onFailure { runtime.report("Cannot request native FOD icon hide", it) }
+                        .getOrDefault(false)
+                    if (hidden) null else chain.proceed()
+                }
+            }
+        }
 
         fun installIndications() {
             val prefix = "com.android.systemui.statusbar."
