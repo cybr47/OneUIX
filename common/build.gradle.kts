@@ -30,6 +30,7 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidsvg)
     compileOnly(project(":stub"))
     testImplementation(libs.junit)
 }
