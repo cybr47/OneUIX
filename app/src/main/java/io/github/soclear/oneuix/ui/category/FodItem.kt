@@ -55,7 +55,7 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     var percent by remember(config.sizePercent) { mutableFloatStateOf(config.scale * 100f) }
-    val preview by produceState<Bitmap?>(null, config.iconSlot, config.iconDigest) {
+    val preview by produceState<Bitmap?>(null, config.iconSlot, config.iconDigest, config.iconFormat) {
         value = withContext(Dispatchers.IO) { FodIconStore.preview(config) }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -65,7 +65,7 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
             scope.launch {
                 try {
                     val selected = withContext(Dispatchers.IO) { FodIconStore.importIcon(context, uri, config) }
-                    onEvent(SystemUIEvent.Fod.SelectIcon(selected.iconSlot, selected.iconDigest))
+                    onEvent(SystemUIEvent.Fod.SelectIcon(selected.iconSlot, selected.iconDigest, selected.iconFormat))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -94,7 +94,7 @@ fun FodItem(config: FodConfig, onEvent: (SystemUIEvent) -> Unit) {
                 Text(stringResource(R.string.fod_replace), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(R.string.fod_png_summary), style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = !busy, onClick = { picker.launch(arrayOf("image/png")) }) {
+                    Button(enabled = !busy, onClick = { picker.launch(arrayOf("image/png", "image/svg+xml")) }) {
                         Text(stringResource(if (busy) R.string.fod_importing else R.string.fod_choose))
                     }
                     if (config.hasCustomIcon) TextButton(enabled = !busy, onClick = {
