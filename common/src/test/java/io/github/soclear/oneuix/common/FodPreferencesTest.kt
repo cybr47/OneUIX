@@ -8,8 +8,8 @@ import org.junit.Test
 class FodPreferencesTest {
     private fun read(text: String) = FodPreferences.read(text.byteInputStream())
 
-    @Test fun readsTheTestedFormatWithoutLosingSelectionOrSize() {
-        val config = FodConfig(true, 1, "a".repeat(64), 150)
+    @Test fun readsAndPreservesOnlyTheHideToggle() {
+        val config = FodConfig(true)
         val preference = Preference(systemUI = Preference.SystemUI(fod = config))
         assertEquals(config, read(IgnoreUnknownKeysJson.encodeToString(Preference.serializer(), preference)))
         assertEquals(FodConfig(), read("""{"android":{"disablePinVerifyPer72h":true}}"""))
