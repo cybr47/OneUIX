@@ -7,6 +7,7 @@ import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.hook.fod.FodSystemUi
+import io.github.soclear.oneuix.hook.fod.FodBiometrics
 import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.ESIM
@@ -37,6 +38,7 @@ class Main : XposedModule() {
         val fod = savedPreference?.systemUI?.fod ?: FodConfig()
         when (packageName) {
             Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> FodSystemUi.install(fod)
+            Package.BIOMETRICS if (processName == Package.BIOMETRICS) -> FodBiometrics.install(fod)
         }
         val preference = savedPreference ?: return@with
 
