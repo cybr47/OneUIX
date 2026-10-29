@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -765,6 +766,11 @@ fun DetailPaneSystemUI(
             )
         }
 
+        if (ONE_UI_VERSION >= 90000) {
+            DividerText(R.string.fod_lockscreen)
+            FodItem(uiState.fod, onEvent)
+        }
+
         DividerText(R.string.notification)
         val selectedPackages = uiState.notification.hideOngoingActivityMediaPackages
             .split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
@@ -936,6 +942,9 @@ private fun powerMenuActionTitle(actionName: String): Int = when (actionName) {
 }
 
 sealed interface SystemUIEvent {
+    sealed interface Fod : SystemUIEvent {
+        data class Enabled(val value: Boolean) : Fod
+    }
     sealed interface StatusBar : SystemUIEvent {
         @JvmInline
         value class AlignContentToTop(val value: Boolean) : StatusBar
@@ -1147,6 +1156,11 @@ sealed interface SystemUIEvent {
 
 fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
     when (event) {
+        is SystemUIEvent.Fod -> updateFod { current ->
+            when (event) {
+                is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
+            }
+        }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)
         is SystemUIEvent.QS -> onQSEvent(event)
         is SystemUIEvent.AOD -> onAODEvent(event)

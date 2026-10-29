@@ -6,6 +6,11 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- Only this signing identity may notify the injected FOD receivers. -->
+    <permission
+        android:name="${applicationId}.permission.FOD_REFRESH"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.FOD_REFRESH" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-permission android:name="android.permission.NFC" />
 

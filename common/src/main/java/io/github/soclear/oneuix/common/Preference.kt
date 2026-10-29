@@ -30,6 +30,7 @@ data class Preference(
         val statusBar: StatusBar = StatusBar(),
         val qs: QS = QS(),
         val aod: AOD = AOD(),
+        val fod: FodConfig = FodConfig(),
         val notification: Notification = Notification(),
         val other: Other = Other(),
     ) {
