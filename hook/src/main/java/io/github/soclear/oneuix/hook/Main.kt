@@ -6,7 +6,6 @@ import io.github.soclear.oneuix.common.NetworkSpeedOption
 import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Package
-import io.github.soclear.oneuix.hook.fod.FodBiometrics
 import io.github.soclear.oneuix.hook.fod.FodSystemUi
 import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.AOD
@@ -32,11 +31,6 @@ class Main : XposedModule() {
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) = with(param) {
         if (!isFirstPackage) return@with
-        // Biometrics needs only bounded FOD settings, not every module preference.
-        if (packageName == Package.BIOMETRICS) {
-            if (processName == Package.BIOMETRICS) FodBiometrics.install(FodConfig())
-            return@with
-        }
         val savedPreference = PreferenceProvider.loadPreference()
         // Install the opt-in FOD listeners even on a fresh installation, before the
         // settings file exists. Other features retain their existing startup behavior.
