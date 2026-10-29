@@ -2,6 +2,7 @@ system
 com.android.nfc
 com.android.settings
 com.android.systemui
+com.samsung.android.biometrics.app.setting
 com.samsung.android.app.notes
 com.samsung.android.app.sketchbook
 com.samsung.android.app.telephonyui
