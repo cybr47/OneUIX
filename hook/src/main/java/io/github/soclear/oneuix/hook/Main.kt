@@ -6,6 +6,7 @@ import io.github.soclear.oneuix.common.NetworkSpeedOption
 import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.hook.fod.FodSystemUi
+import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.ESIM
 import io.github.soclear.oneuix.hook.systemui.HideBatteryIcon
@@ -388,6 +389,14 @@ class Main : XposedModule() {
 
                 if (preference.systemUI.qs.turnOn5gQsTile) {
                     Network.turnOn5gQsTile()
+                }
+
+                if (preference.systemUI.qs.hideAudioEraserBanner) {
+                    AudioEraserTile.hideBanner()
+                }
+
+                if (preference.systemUI.qs.audioEraserQsTileEnabled) {
+                    AudioEraserTile.install()
                 }
 
                 run {
