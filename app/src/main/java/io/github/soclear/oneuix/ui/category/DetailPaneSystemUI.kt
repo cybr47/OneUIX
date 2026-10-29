@@ -38,6 +38,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import io.github.soclear.oneuix.R
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
+import io.github.soclear.oneuix.common.FodIconFormat
 import io.github.soclear.oneuix.common.PowerMenuAction
 import io.github.soclear.oneuix.common.Preference
 import io.github.soclear.oneuix.ui.SettingViewModel
