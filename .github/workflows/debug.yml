@@ -1,0 +1,98 @@
+name: Debug build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: read
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Set up signing
+        env:
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          set +x
+          if [ -z "$P12_BASE64" ] || [ -z "$P12_PASSWORD" ]; then
+            echo "::error::Signing secrets (P12_BASE64, P12_PASSWORD) are not fully configured"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$P12_BASE64" | base64 --decode > app/release.p12
+          KEY_ALIAS=$(java -e '
+            import java.io.FileInputStream;
+            import java.security.KeyStore;
+            public class GetAlias {
+              public static void main(String[] args) throws Exception {
+                KeyStore ks = KeyStore.getInstance("PKCS12");
+                try (FileInputStream fis = new FileInputStream("app/release.p12")) {
+                  ks.load(fis, System.getenv("P12_PASSWORD").toCharArray());
+                }
+                if (ks.aliases().hasMoreElements()) {
+                  System.out.print(ks.aliases().nextElement());
+                }
+              }
+            }
+          ' 2>/dev/null || keytool -list -v -keystore app/release.p12 -storepass "$P12_PASSWORD" -storetype PKCS12 | sed -n 's/^Alias name: //p' | head -n 1 | tr -d '\r')
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Could not determine keyAlias from P12 file"
+            exit 1
+          fi
+          echo "::add-mask::$KEY_ALIAS"
+          KEY_ALIAS="$KEY_ALIAS" java -e '
+            import java.io.FileOutputStream;
+            import java.util.Properties;
+            public class WriteProps {
+              public static void main(String[] args) throws Exception {
+                Properties p = new Properties();
+                p.setProperty("storeFile", "release.p12");
+                p.setProperty("storePassword", System.getenv("P12_PASSWORD"));
+                p.setProperty("keyAlias", System.getenv("KEY_ALIAS"));
+                p.setProperty("keyPassword", System.getenv("P12_PASSWORD"));
+                try (FileOutputStream fos = new FileOutputStream("keystore.properties")) {
+                  p.store(fos, null);
+                }
+              }
+            }
+          ' 2>/dev/null || {
+            printf 'storeFile=release.p12\n'
+            printf 'storePassword=%s\n' "$P12_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$P12_PASSWORD"
+          } > keystore.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f app/release.p12 keystore.properties
+
+      - name: Rename APK
+        run: |
+          NAME="${GITHUB_REF_NAME//\//-}"
+          mv app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/OneUIX_debug_${NAME}.apk"
+          echo "ARTIFACT_NAME=OneUIX_debug_${NAME}" >> "$GITHUB_ENV"
+
+      - name: Upload APK Artifact to Actions Tab
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: app/build/outputs/apk/debug/OneUIX_debug_*.apk
+          if-no-files-found: error
