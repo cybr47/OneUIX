@@ -12,9 +12,9 @@ import java.util.WeakHashMap
 object FodSystemUi {
     context(module: XposedModule)
     fun install(initial: FodConfig) = afterAttachTry(ONE_UI_VERSION >= 90000) {
-        val runtime = FodRuntime(module, this, initial, loadIcon = false)
+        val runtime = FodRuntime(module, this, initial)
         val bridge = Bridge(module, classLoader, runtime)
-        // Hide-only uses SystemUI's native API; custom artwork keeps the window for the renderer.
+        // Use SystemUI's native visibility API for the single hide/show option.
         runtime.safely("Native fingerprint icon visibility hook is unsupported") { bridge.installIconVisibility() }
         // Firmware can use more than one presentation path; resolve each independently.
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
@@ -43,8 +43,7 @@ object FodSystemUi {
             // hiding is enabled, replace it with the paired native hide request so the
             // sensor's ordinary authentication/listening lifecycle remains untouched.
             module.hook(show).intercept { chain ->
-                if (!runtime.state.config.hideIcon || runtime.state.config.hasCustomIcon) {
-                    // Keep Samsung's FOD window alive when Biometrics draws replacement artwork.
+                if (!runtime.state.config.hideIcon) {
                     chain.proceed()
                 } else {
                     val hidden = runCatching { hide.invoke(chain.thisObject); true }
