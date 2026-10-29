@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PermissionInfo
 import android.graphics.Bitmap
+import android.graphics.Picture
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -14,7 +15,9 @@ import android.util.Log
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.BuildConfig
 import io.github.soclear.oneuix.common.FodConfig
+import io.github.soclear.oneuix.common.FodIconFormat
 import io.github.soclear.oneuix.common.FodPng
+import io.github.soclear.oneuix.common.FodSvg
 import io.github.soclear.oneuix.common.FodPreferences
 import io.github.soclear.oneuix.common.Preference
 import java.util.concurrent.ArrayBlockingQueue
@@ -27,9 +30,9 @@ internal class FodRuntime(
     initial: FodConfig,
     private val loadIcon: Boolean = true,
 ) {
-    data class State(val config: FodConfig, val bitmap: Bitmap?)
+    data class State(val config: FodConfig, val bitmap: Bitmap?, val picture: Picture?)
 
-    @Volatile var state = State(initial, null)
+    @Volatile var state = State(initial, null, null)
         private set
     private val main = Handler(Looper.getMainLooper())
     private val worker = ThreadPoolExecutor(0, 1, 10, TimeUnit.SECONDS, ArrayBlockingQueue<Runnable>(1))
@@ -47,7 +50,7 @@ internal class FodRuntime(
             val next = runCatching { loadState() }.onFailure {
                 // Parser exceptions may contain preference contents. Do not log them.
                 report("Cannot read FOD settings; restoring native visuals")
-            }.getOrElse { State(FodConfig(), null) }
+            }.getOrElse { State(FodConfig(), null, null) }
             main.post {
                 state = next
                 listeners.forEach { listener -> safely("Refresh FOD visuals", listener) }
@@ -61,14 +64,28 @@ internal class FodRuntime(
             FodPreferences.read(it)
         }
         val previous = state
-        val bitmap = if (!loadIcon || !config.hideIcon || !config.hasCustomIcon) null
-        else if (config.iconDigest == previous.config.iconDigest && previous.bitmap != null) previous.bitmap
-        else runCatching {
-            ParcelFileDescriptor.AutoCloseInputStream(module.openRemoteFile(requireNotNull(config.iconFileName))).use {
-                FodPng.decodeStored(FodConfig.readBounded(it, FodConfig.MAX_STORED_BYTES), config.iconDigest)
+        val canReuse = config.iconDigest == previous.config.iconDigest &&
+            config.iconFormat == previous.config.iconFormat
+        var bitmap: Bitmap? = null
+        var picture: Picture? = null
+        if (loadIcon && config.hideIcon && config.hasCustomIcon) {
+            if (canReuse && previous.bitmap != null) {
+                bitmap = previous.bitmap
+            } else if (canReuse && previous.picture != null) {
+                picture = previous.picture
+            } else {
+                runCatching {
+                    val bytes = ParcelFileDescriptor.AutoCloseInputStream(
+                        module.openRemoteFile(requireNotNull(config.iconFileName))
+                    ).use { FodConfig.readBounded(it, FodConfig.MAX_STORED_BYTES) }
+                    when (config.iconFormat) {
+                        FodIconFormat.PNG -> bitmap = FodPng.decodeStored(bytes, config.iconDigest)
+                        FodIconFormat.SVG -> picture = FodSvg.decodeStored(bytes, config.iconDigest)
+                    }
+                }.onFailure { report("Cannot load selected FOD icon; native glyph remains hidden", it) }
             }
-        }.onFailure { report("Cannot load selected PNG; keeping FOD hidden", it) }.getOrNull()
-        return State(config, bitmap)
+        }
+        return State(config, bitmap, picture)
     }
 
     init {
