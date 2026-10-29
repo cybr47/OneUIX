@@ -38,4 +38,22 @@ class StatusBarAppearanceTest {
         assertEquals("0%", StatusBarAppearance.batteryLabel(Int.MIN_VALUE, false, false, false))
         assertEquals("100%", StatusBarAppearance.batteryLabel(Int.MAX_VALUE, false, false, false))
     }
+
+    @Test fun lockscreenNotificationAndBatteryViewsAreRecognisedByIdOrClass() {
+        val part = StatusBarAppearance::lockscreenPart
+        val p = StatusBarAppearance.LockscreenPart
+        assertEquals(p.NOTIFICATION_ICONS, part("notification_icon_area", "android.widget.FrameLayout"))
+        assertEquals(p.NOTIFICATION_ICONS, part(null, "com.android.systemui.statusbar.phone.NotificationIconContainer"))
+        assertEquals(p.BATTERY, part("battery", "androidx.compose.ui.platform.ComposeView"))
+        assertEquals(p.BATTERY, part(null, "com.android.systemui.battery.view.SamsungBatteryComposeView"))
+        assertEquals(p.BATTERY, part(null, "com.android.systemui.battery.BatteryMeterView"))
+        // Containers that hold several parts are searched, never hidden as a whole.
+        assertNull(part("system_icons", "android.widget.LinearLayout"))
+        assertNull(part("left_clock_container", "android.widget.LinearLayout"))
+        assertNull(part(null, "android.view.View"))
+        // Carrier / operator name and the connectivity icon container.
+        assertEquals(p.CARRIER, part("operator_name", "android.widget.TextView"))
+        assertEquals(p.CARRIER, part(null, "com.android.keyguard.CarrierText"))
+        assertEquals(p.CONNECTIVITY_ICONS, part("statusIcons", "com.android.systemui.statusbar.phone.StatusIconContainer"))
+    }
 }

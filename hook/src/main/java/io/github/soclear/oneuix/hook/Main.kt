@@ -383,6 +383,20 @@ class Main : XposedModule() {
                     StatusBar.hideLockscreenStatusBar()
                 }
 
+                val lockscreenStatusBar = preference.systemUI.statusBar
+                if (lockscreenStatusBar.hideLockscreenCarrierName ||
+                    lockscreenStatusBar.hideLockscreenNotificationIcons ||
+                    lockscreenStatusBar.hideLockscreenConnectivityIcons ||
+                    lockscreenStatusBar.hideLockscreenBatteryIcon
+                ) {
+                    StatusBar.customizeLockscreenStatusBar(
+                        hideCarrierName = lockscreenStatusBar.hideLockscreenCarrierName,
+                        hideNotificationIcons = lockscreenStatusBar.hideLockscreenNotificationIcons,
+                        hideConnectivityIcons = lockscreenStatusBar.hideLockscreenConnectivityIcons,
+                        hideBatteryIcon = lockscreenStatusBar.hideLockscreenBatteryIcon,
+                    )
+                }
+
                 if (preference.settings.supportOutdoorMode) {
                     QS.supportOutdoorMode()
                 }
