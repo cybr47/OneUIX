@@ -12,6 +12,7 @@ libxposed = "102.0.0"
 dexkit = "2.2.0"
 datastore = "1.2.1"
 kotlinxSerializationJson = "1.11.0"
+androidsvg = "1.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +37,7 @@ adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adapt
 adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation" }
 datastore = { group = "androidx.datastore", name = "datastore", version.ref = "datastore" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+androidsvg = { group = "com.caverock", name = "androidsvg", version.ref = "androidsvg" }
 
 
 [plugins]
