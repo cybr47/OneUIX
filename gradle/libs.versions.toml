@@ -37,7 +37,7 @@ adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adapt
 adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation" }
 datastore = { group = "androidx.datastore", name = "datastore", version.ref = "datastore" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
-androidsvg = { group = "com.caverock", name = "androidsvg", version.ref = "androidsvg" }
+androidsvg = { group = "com.caverock", name = "androidsvg-aar", version.ref = "androidsvg" }
 
 
 [plugins]
