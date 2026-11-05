@@ -24,6 +24,7 @@ import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.BuildConfig
 import io.github.soclear.oneuix.common.Package
 import io.github.soclear.oneuix.common.StatusBarAppearance
+import io.github.soclear.oneuix.hook.systemui.LockscreenStatusBarParts
 import io.github.soclear.oneuix.hook.util.afterAttach
 import io.github.soclear.oneuix.hook.util.afterAttachTry
 import io.github.soclear.oneuix.hook.util.reflect
