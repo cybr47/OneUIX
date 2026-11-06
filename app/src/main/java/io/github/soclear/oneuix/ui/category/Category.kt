@@ -5,6 +5,7 @@ import io.github.soclear.oneuix.common.Package
 enum class Category(val packageName: String) {
     Android(Package.ANDROID),
     SystemUI(Package.SYSTEMUI),
+    XMorphClock(Package.CLOCK),
     Settings(Package.SETTINGS),
     Call(Package.DIALER),
     Camera(Package.CAMERA),
