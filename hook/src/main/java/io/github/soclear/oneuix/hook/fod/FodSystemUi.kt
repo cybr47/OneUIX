@@ -16,6 +16,8 @@ object FodSystemUi {
         val bridge = Bridge(module, classLoader, runtime)
         // Use SystemUI's native visibility API for the single hide/show option.
         runtime.safely("Native fingerprint icon visibility hook is unsupported") { bridge.installIconVisibility() }
+        // Clamp the UDFPS drawable itself after Samsung recalculates its alpha.
+        runtime.safely("Fingerprint drawable alpha guard is unsupported") { bridge.installDrawableAlphaGuard() }
         // Firmware can use more than one presentation path; resolve each independently.
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
         runtime.safely("Fingerprint popup hook is unsupported") { bridge.installPopup() }
@@ -31,6 +33,7 @@ object FodSystemUi {
         private val popups = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
         private val toastTypes = WeakHashMap<View, String>()
         private val hiddenToasts = WeakHashMap<View, Float>()
+        private val udfpsViews = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
 
         fun installIconVisibility() {
             val fingerprintManager = loader.loadClass("android.hardware.fingerprint.FingerprintManager")
@@ -50,6 +53,36 @@ object FodSystemUi {
                         .onFailure { runtime.report("Cannot request native FOD icon hide", it) }
                         .getOrDefault(false)
                     if (hidden) null else chain.proceed()
+                }
+            }
+        }
+
+        fun installDrawableAlphaGuard() {
+            val viewClass = loader.loadClass("com.android.systemui.biometrics.UdfpsAnimationView")
+            val updateAlpha = viewClass.getDeclaredMethod("updateAlpha").apply { isAccessible = true }
+            require(updateAlpha.parameterCount == 0 && updateAlpha.returnType == Void.TYPE)
+
+            module.hook(updateAlpha).intercept { chain ->
+                val result = chain.proceed()
+                runtime.safely("Clamp UDFPS drawable alpha") {
+                    val view = chain.thisObject as? View ?: return@safely
+                    udfpsViews.add(view)
+                    if (runtime.state.config.hideIcon) {
+                        val drawable = view.reflect.call("getDrawable")
+                            ?: error("UDFPS drawable is unavailable")
+                        // updateAlpha() writes the native calculated alpha to the inner
+                        // drawable, not to the View. Clamp that exact rendered object.
+                        drawable.reflect.call("setAlpha", 0)
+                    }
+                }
+                result
+            }
+
+            runtime.onChanged {
+                udfpsViews.toList().forEach { view ->
+                    runtime.safely("Refresh UDFPS drawable alpha") {
+                        view.reflect.call("updateAlpha")
+                    }
                 }
             }
         }
