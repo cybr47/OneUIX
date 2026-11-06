@@ -23,7 +23,7 @@
     <string name="hideBatteryLevelTextPercentageSign_title">Masquer le symbole de pourcentage</string>
     <string name="hideBatteryLevelTextChargingIcon_title">Masquer l\'icône de charge</string>
     <string name="supportRealTimeNetworkSpeed_title">Afficher la vitesse du réseau en temps réel</string>
-    <string name="supportRealTimeNetworkSpeed_summary">Paramètres -> Notifications -> Paramètres avancés -> Afficher la vitesse du réseau\nAppuyez pour accéder à plus de paramètres</string>
+    <string name="supportRealTimeNetworkSpeed_summary">Activez la vitesse du réseau ici. Appuyez pour plus de paramètres.</string>
     <string name="networkSpeedLayout_title">Disposition de la vitesse réseau</string>
     <string name="networkSpeedLayout_systemDefault">Par défaut du système</string>
     <string name="networkSpeedLayout_splitHorizontal">Séparé horizontalement, côte à côte</string>
@@ -67,8 +67,14 @@
     <string name="hideQsBarSecurityFooter_summary">Exemple : Vos applications personnelles sont connectées à Internet via \"VPN\"</string>
     <string name="hideQsBarDataUsage_title">Masquer la barre d\'utilisation des données dans les paramètres rapides</string>
     <string name="hideQsBarSmartViewAndModes_title">Masquer la barre Smart View et Modes dans les paramètres rapides</string>
+    <string name="hideQuickQsTiles_title">Masquer les tuiles dans le panneau réduit</string>
+    <string name="hideQuickQsTiles_summary">One UI 6.1 : afficher les tuiles uniquement dans le panneau des paramètres rapides entièrement déployé</string>
     <string name="hideDeviceControlQsTile_title">Masquer le contrôle des appareils dans les paramètres rapides</string>
     <string name="hideSmartViewQsTile_title">Masquer Smart View dans les paramètres rapides</string>
+    <string name="hideAudioEraserBanner_title">Masquer la bannière Gomme audio dans les paramètres rapides</string>
+    <string name="hideAudioEraserBanner_summary">Masquer la bannière Gomme audio affichée en haut du panneau des paramètres rapides pendant la lecture dans certaines applications multimédias. Les autres bannières sont conservées</string>
+    <string name="quickQsTileCount_title">Nombre de tuiles du panneau rapide réduit</string>
+    <string name="quickQsTileCount_default">Par défaut du système</string>
     <string name="alwaysExpandQsTileChunk_title">Toujours développer les tuiles des paramètres rapides</string>
     <string name="alwaysShowTimeDateOnQs_title">Toujours afficher l\'heure et la date dans les paramètres rapides</string>
     <string name="setStatusBarMaxNotificationIcons_title">Modifier le nombre maximum d\'icônes de notification (Barre d\'état)</string>
@@ -79,6 +85,8 @@
     <string name="showMorePlaybackSpeeds_summary">Inclut le lecteur local et le lecteur intégré au navigateur</string>
     <string name="redirect_custom_tab_title">Forcer l\'ouverture dans Samsung Internet externe</string>
     <string name="redirect_custom_tab_summary">Quand Samsung Internet est défini comme navigateur par défaut, de nombreuses applications ouvrent les liens dans un onglet personnalisé Samsung Internet limité. Activez cette option pour quitter l\'application et ouvrir les liens dans le navigateur Samsung Internet complet.</string>
+    <string name="hideGalaxyStoreDiscover_title">Masquer l’onglet Découvrir</string>
+    <string name="hideGalaxyStoreBenefits_title">Masquer l’onglet Avantages</string>
     <string name="blockGalaxyStoreAds_title">Bloquer les publicités du Galaxy Store</string>
     <string name="galaxyStoreRegion_title">Opérateur SIM du Galaxy Store (MCC+MNC)</string>
     <string name="galaxyStoreRegion_summary">Saisissez 5 ou 6 chiffres en conservant les zéros initiaux, puis appuyez sur Confirmer pour enregistrer. Laissez vide pour ne rien modifier. Redémarrez Galaxy Store pour appliquer.</string>
@@ -134,6 +142,8 @@
     <string name="modifyMaxNeverKilledAppNum_title">Modifier le nombre maximum d\'applications \"Maintenir ouvert\"</string>
     <string name="showTraditionalChineseDateOnQS_title">Afficher le calendrier lunaire chinois (Paramètres rapides)</string>
     <string name="modifyQSClockTextSize_title">Modifier la taille de la police de l\'horloge (Paramètres rapides)</string>
+    <string name="disableHighBrightnessDialog_title">Désactiver la boîte de dialogue de luminosité élevée</string>
+    <string name="disableHighBrightnessDialog_summary">Ne pas proposer la luminosité adaptative lors de l’augmentation de la luminosité</string>
     <string name="addBrightnessProgressToQsBar_title">Afficher le niveau de luminosité (Paramètres rapides)</string>
     <string name="addVolumeProgressToQsBar_title">Afficher le niveau de volume (Paramètres rapides)</string>
     <string name="showMemoryUsageInRecents_title">Afficher l\'utilisation de la RAM dans les applications récentes</string>
@@ -149,6 +159,8 @@
     <string name="aodLockSupportLunar_title">Afficher le calendrier lunaire chinois sur l\'AOD</string>
     <string name="enableChineseHolidayDisplay_title">Afficher les jours fériés chinois dans le calendrier</string>
     <string name="supportBlockMessage_title">Prendre en charge le blocage des SMS</string>
+    <string name="unlockRcs_title">Débloquer RCS</string>
+    <string name="unlockRcs_summary">Afficher les paramètres de chat et contourner les vérifications locales de prise en charge RCS. Le service RCS de votre opérateur reste nécessaire. Redémarrez Samsung Messages après toute modification.</string>
     <string name="setThemeTrialNeverExpired_title">Les essais de thèmes et d\'icônes n\'expirent jamais</string>
     <string name="spoofBrowserCountryCodeToUS_title">Simuler la région du navigateur (États-Unis)</string>
     <string name="spoofBrowserCountryCodeToUS_summary">Personnaliser les moteurs de recherche et le bloqueur de publicités</string>
@@ -160,7 +172,7 @@
     <string name="spoofPhoneStatusAsOfficial_summary">Paramètres -> À propos du téléphone -> Informations sur l\'état</string>
     <string name="noAIWatermark_title">Désactiver le filigrane IA</string>
     <string name="noAIWatermark_summary">Inclut l\'éditeur de photos et Studio création</string>
-    <string name="hideSamsungHealthDiscover_title">Masquer l’onglet Découvrir</string>
+    <string name="hideSamsungHealthDiscover_title">Masquer Découvrir et Promotions</string>
     <string name="bypassHealthMonitorCountryCheck_title">Contourner la vérification de pays Samsung Health Monitor</string>
     <string name="bypassHealthMonitorCountryCheck_summary">Utiliser Health Monitor dans les pays non pris en charge</string>
     <string name="useSPenGoogleTranslate_title">Utiliser Google Traduction pour S Pen</string>
@@ -226,4 +238,19 @@
     <string name="hideLockscreenEmergencyButton_summary">Supprime le raccourci d’appel d’urgence de l’écran de déverrouillage et rend les appels d’urgence moins accessibles.</string>
     <string name="modifyDockBottomPadding_title">Modifier la marge inférieure du dock de l’écran d’accueil</string>
     <string name="modifyDockBottomPadding_summary">Téléphones en mode portrait : %1$.1f dp. Réglez sur 0 pour supprimer la marge inférieure. Peut chevaucher la zone des gestes.</string>
+    <string name="mediaPage_title">Page média avec application (expérimental)</string>
+    <string name="mediaPage_summary">Redémarrez One UI Home après avoir changé cet interrupteur. Sélectionnez OneUIX dans les paramètres de sa page média, puis touchez ici pour choisir une application. Un accès root est requis. Utilisez les gestes système Retour et Accueil. Certaines applications peuvent être incompatibles.</string>
+    <string name="mediaPage_selectApp">Choisir une application</string>
+    <string name="mediaPage_starting">Démarrage… Autorisez l’accès root à OneUIX si nécessaire.</string>
+    <string name="mediaPage_unavailable">Application indisponible ou sans activité de lancement.</string>
+    <string name="mediaPage_rootFailed">Le processus root s’est arrêté (%1$d). Vérifiez les droits root, puis quittez et rouvrez la page.</string>
+    <string name="networkSpeedShowPerSecond_title">Afficher /s</string>
+    <string name="networkSpeedRefreshInterval_title">Intervalle de rafraîchissement</string>
+    <string name="networkSpeedPaddingEnd_title">Espacement avec la prochaine icône</string>
+    <string name="disableLowBatteryDimming_title">Désactiver la baisse de luminosité à batterie faible</string>
+    <string name="disableLowBatteryDimming_summary">Conserver la luminosité actuelle à 5 % de batterie ou moins</string>
+    <string name="allowLowBatteryFlashlight_title">Autoriser la lampe torche à batterie faible</string>
+    <string name="allowLowBatteryFlashlight_summary">Utilisable jusqu’à 1 % sans extinction automatique due à la batterie faible. La protection thermique est conservée</string>
+    <string name="enableRealtimeBlur_title">Flou des panneaux en temps réel (expérimental)</string>
+    <string name="enableRealtimeBlur_summary">Tenter d’activer le flou en temps réel dans les panneaux de notifications et de réglages rapides. Nécessite la prise en charge graphique de la ROM et peut augmenter la consommation ou causer des problèmes d’affichage. Redémarrez l’appareil après modification.</string>
 </resources>

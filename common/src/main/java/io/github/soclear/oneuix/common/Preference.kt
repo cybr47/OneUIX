@@ -22,6 +22,7 @@ data class Preference(
         val allowAllRotation: Boolean = false,
         val liftFcmNetworkLimit: Boolean = false,
         val disableScreenWakeOnPowerUnplugged: Boolean = false,
+        val disableLowBatteryDimming: Boolean = false,
         val disableFlagSecure: Boolean = false,
     )
 
@@ -36,6 +37,7 @@ data class Preference(
     ) {
         @Serializable
         data class StatusBar(
+            val networkSpeed: NetWorkSpeed = NetWorkSpeed(),
             val modifyStatusBarLeftPadding: Boolean = false,
             val statusBarLeftPaddingDp: Float = 0f,
             val modifyStatusBarRightPadding: Boolean = false,
@@ -51,16 +53,6 @@ data class Preference(
             val hideBatteryLevelTextPercentageSign: Boolean = false,
             val hideBatteryLevelTextChargingIcon: Boolean = false,
             val hideWifiGenerationDigit: Boolean = false,
-            val supportRealTimeNetworkSpeed: Boolean = true,
-            val networkSpeedLayout: Int = 0,
-            val showNetworkSpeedArrows: Boolean = true,
-            val networkSpeedMarker: Int = 0,
-            val networkSpeedUnit: Int = 0,
-            val networkSpeedTextSizeSp: Float = 0f,
-            val networkSpeedMarkerSizeSp: Float = 0f,
-            val networkSpeedMarkerGap: Float = 1f,
-            val networkSpeedLineSpacingDp: Float = 0f,
-            val networkSpeedThreshold: Int = 0,
             val setStatusBarClockFormat: Boolean = false,
             val statusBarClockFormat: String = "HH:mm",
             val setStatusBarClockTextScale: Boolean = false,
@@ -80,11 +72,62 @@ data class Preference(
             val hideLockscreenConnectivityIcons: Boolean = false,
             val hideLockscreenBatteryIcon: Boolean = false,
             val restoreBluetoothStatusBarIcon: Boolean = false,
-        )
+        ) {
+            @Serializable
+            data class NetWorkSpeed(
+                val supportRealTime: Boolean = true,
+                val layout: Layout = Layout.SYSTEM,
+                val showArrows: Boolean = true,
+                val marker: Marker = Marker.ARROW,
+                val unit: Unit = Unit.BYTES_BINARY,
+                val showPerSecond: Boolean = true,
+                val textSizeSp: Float = 0f,
+                val markerSizeSp: Float = 0f,
+                val markerGap: Float = 1f,
+                val lineSpacingDp: Float = 0f,
+                val threshold: Int = 0,
+                val refreshInterval: RefreshInterval = RefreshInterval.ONE_SECOND,
+                val paddingEndDp: Float = 0f,
+            ) {
+                enum class Layout { SYSTEM, SPLIT_HORIZONTAL, SPLIT_VERTICAL, ACTIVE_DIRECTION }
+
+                enum class Marker(val up: String, val down: String) {
+                    ARROW("↑", "↓"),
+                    TRIANGLE("▲", "▼"),
+                    OUTLINE_TRIANGLE("△", "▽"),
+                    OUTLINE_ARROW("⇧", "⇩"),
+                    DASHED_ARROW("⇡", "⇣"),
+                    CHEVRON("⌃", "⌄"),
+                    BOTH_DIRECTIONS("↕", "↕"),
+                    ASCII("^", "v"),
+                    BLOCK_ARROW("⬆", "⬇"),
+                }
+
+                enum class Unit(val bits: Boolean, val base: Int, val kiloPrefix: String) {
+                    BYTES_BINARY(false, 1024, "K"),
+                    BYTES_DECIMAL(false, 1000, "K"),
+                    BITS_DECIMAL(true, 1000, "Kb"),
+                    BITS_BINARY(true, 1024, "Kib"),
+                }
+
+                enum class RefreshInterval(val milliseconds: Long) {
+                    QUARTER_SECOND(250),
+                    HALF_SECOND(500),
+                    ONE_SECOND(1000),
+                    TWO_SECONDS(2000),
+                    THREE_SECONDS(3000),
+                    FOUR_SECONDS(4000),
+                    FIVE_SECONDS(5000),
+                }
+            }
+        }
 
         @Serializable
         data class QS(
+            val enableRealtimeBlur: Boolean = false,
+            val quickQsTileCount: Int = 0,
             val setQsClockMonospaced: Boolean = false,
+            val hideQuickQsTiles: Boolean = false,
             val hideDeviceControlQsTile: Boolean = false,
             val hideSmartViewQsTile: Boolean = false,
             val turnOn5gQsTile: Boolean = false,
@@ -98,6 +141,7 @@ data class Preference(
             val hideQsBarSmartViewAndModes: Boolean = false,
             val alwaysExpandQsTileChunk: Boolean = false,
             val alwaysShowTimeDateOnQs: Boolean = false,
+            val disableHighBrightnessDialog: Boolean = false,
             val addBrightnessProgressToQsBar: Boolean = false,
             val addVolumeProgressToQsBar: Boolean = false,
             val showTraditionalChineseDateOnQS: Boolean = false,
@@ -127,6 +171,7 @@ data class Preference(
         data class Other(
             val hideLockscreenEmergencyButton: Boolean = false,
             val disableScreenshotCaptureSound: Boolean = false,
+            val allowLowBatteryFlashlight: Boolean = false,
             val customPowerMenu: Boolean = false,
             val powerMenuActions: List<PowerMenuAction> = PowerMenuAction.defaultPreferences()
         )
@@ -171,6 +216,8 @@ data class Preference(
         val supportBixbyCustomWakeup: Boolean = false,
         val bypassBixbyWakeWordRestrictions: Boolean = false,
         val blockGalaxyStoreAds: Boolean = true,
+        val hideGalaxyStoreDiscover: Boolean = false,
+        val hideGalaxyStoreBenefits: Boolean = false,
         val setGalaxyStoreSimOperator: Boolean = false,
         val galaxyStoreSimOperator: String = "",
         val makeAllUserAppsAvailable: Boolean = true,
@@ -186,12 +233,15 @@ data class Preference(
         val supportAllNotesFeatures: Boolean = true,
         val enableChineseHolidayDisplay: Boolean = false,
         val supportBlockMessage: Boolean = true,
+        val unlockRcs: Boolean = false,
         val setThemeTrialNeverExpired: Boolean = true,
         val spoofBrowserCountryCodeToUS: Boolean = false,
         val noAIWatermark: Boolean = true,
         val hideSamsungHealthDiscover: Boolean = false,
         val bypassHealthMonitorCountryCheck: Boolean = false,
         val useSPenGoogleTranslate: Boolean = false,
+        val mediaPagePackage: String = "",
+        val embedAppInMediaPage: Boolean = false,
         val hideAppsSearchBar: Boolean = false,
         val searchBarColorsEnabled: Boolean = false,
         val searchBarColorLevel: Float = 0f,

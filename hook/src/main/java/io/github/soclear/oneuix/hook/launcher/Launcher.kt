@@ -1,4 +1,4 @@
-package io.github.soclear.oneuix.hook
+package io.github.soclear.oneuix.hook.launcher
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -24,6 +24,7 @@ import android.widget.TextView
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.hook.HomeSearchBarStyle
 import io.github.soclear.oneuix.hook.util.HookConfig
 import io.github.soclear.oneuix.hook.util.afterAttach
 import io.github.soclear.oneuix.hook.util.afterAttachTry
@@ -84,18 +85,14 @@ object Launcher {
     }
 
     context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
-    fun showMemoryUsageInRecentsTargetSdk36() {
+    fun showMemoryUsageInRecentsTargetSdk36() = afterAttachTry {
         if (param.packageName != Package.LAUNCHER ||
             Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA
-        ) return
+        ) return@afterAttachTry
 
-        var memoryTextView: TextView? = null
+        val memoryViewTag = "oneuix:recents_memory"
         var activityManager: ActivityManager? = null
         var activityRef: WeakReference<Activity>? = null
-
-        fun dpToPx(dp: Int, view: View): Int {
-            return (dp * view.resources.displayMetrics.density).roundToInt()
-        }
 
         try {
             xposedModule.hook(
@@ -107,21 +104,21 @@ object Launcher {
                 if (activityManager == null) {
                     activityManager = activity.getSystemService(ActivityManager::class.java)
                 }
-                (memoryTextView?.parent as? ViewGroup)?.removeView(memoryTextView)
                 val decorView = activity.window.decorView as? FrameLayout ?: return@intercept result
-                memoryTextView = TextView(activity).apply {
-                    setTextColor(Color.WHITE)
-                    typeface = Typeface.MONOSPACE
-                    setShadowLayer(5f, 0f, 0f, Color.BLACK)
-                    layoutParams = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                        bottomMargin = dpToPx(0, decorView)
-                    }
+                if (decorView.findViewWithTag<TextView>(memoryViewTag) == null) {
+                    decorView.addView(TextView(activity).apply {
+                        tag = memoryViewTag
+                        setTextColor(Color.WHITE)
+                        typeface = Typeface.MONOSPACE
+                        setShadowLayer(5f, 0f, 0f, Color.BLACK)
+                        layoutParams = FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.WRAP_CONTENT,
+                            FrameLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                        }
+                    })
                 }
-                decorView.addView(memoryTextView)
                 activityRef = WeakReference(activity)
                 result
             }
@@ -172,8 +169,10 @@ object Launcher {
             lastUpdateTime = currentTime
 
             val memoryText = getMemoryText()
-            activityRef?.get()?.runOnUiThread {
-                memoryTextView?.text = memoryText
+            activityRef?.get()?.apply {
+                runOnUiThread {
+                    window.decorView.findViewWithTag<TextView>(memoryViewTag)?.text = memoryText
+                }
             }
         }
 
