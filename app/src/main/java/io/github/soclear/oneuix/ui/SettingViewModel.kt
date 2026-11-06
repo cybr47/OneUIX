@@ -48,9 +48,12 @@ class SettingViewModel(private val application: Application) : ViewModel() {
             } catch (_: PackageManager.NameNotFoundException) {
                 null
             }
-            val label = if (category == Category.NFC) application.getString(R.string.nfc_service)
-                else applicationInfo?.loadLabel(packageManager)?.toString()
-                ?: category.packageName
+            val label = when (category) {
+                Category.NFC -> application.getString(R.string.nfc_service)
+                Category.XMorphClock -> application.getString(R.string.xmorph_clock)
+                else -> applicationInfo?.loadLabel(packageManager)?.toString()
+                    ?: category.packageName
+            }
             val icon = applicationInfo?.loadIcon(packageManager)?.toBitmap()?.asImageBitmap()
                 ?: fallbackIcon
             (applicationInfo != null) to CategoryAppInfo(category, label, icon)
