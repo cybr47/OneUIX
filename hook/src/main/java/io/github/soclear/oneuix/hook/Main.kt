@@ -19,6 +19,7 @@ import io.github.soclear.oneuix.hook.systemui.StatusBar
 import io.github.soclear.oneuix.hook.systemui.powermenu.PowerMenu
 import io.github.soclear.oneuix.hook.util.PreferenceProvider
 import io.github.soclear.oneuix.hook.util.addAssetPath
+import io.github.soclear.oneuix.hook.xmc.XMorphClockModule
 import io.github.soclear.oneuix.hook.systemui.Other as SystemUIOther
 
 class Main : XposedModule() {
@@ -35,7 +36,10 @@ class Main : XposedModule() {
         // settings file exists. Other features retain their existing startup behavior.
         val fod = savedPreference?.systemUI?.fod ?: FodConfig()
         when (packageName) {
-            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> FodSystemUi.install(fod)
+            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> {
+                FodSystemUi.install(fod)
+                XMorphClockModule.install(this, classLoader)
+            }
         }
         val preference = savedPreference ?: return@with
 
