@@ -923,6 +923,14 @@ fun DetailPaneSystemUI(
         if (ONE_UI_VERSION >= 90000) {
             DividerText(R.string.fod_lockscreen)
             FodItem(uiState.fod, onEvent)
+            SwitchItem(
+                title = stringResource(R.string.shortcutsFollowClockColor_title),
+                summary = stringResource(R.string.shortcutsFollowClockColor_summary),
+                checked = uiState.fod.shortcutsFollowClockColor,
+                onCheckedChange = {
+                    onEvent(SystemUIEvent.Fod.ShortcutsFollowClockColor(it))
+                }
+            )
         }
 
         DividerText(R.string.notification)
@@ -1105,6 +1113,7 @@ private fun powerMenuActionTitle(actionName: String): Int = when (actionName) {
 sealed interface SystemUIEvent {
     sealed interface Fod : SystemUIEvent {
         data class Enabled(val value: Boolean) : Fod
+        data class ShortcutsFollowClockColor(val value: Boolean) : Fod
     }
     sealed interface StatusBar : SystemUIEvent {
         @JvmInline
@@ -1329,6 +1338,8 @@ fun SettingViewModel.onSystemUIEvent(event: SystemUIEvent) {
         is SystemUIEvent.Fod -> updateFod { current ->
             when (event) {
                 is SystemUIEvent.Fod.Enabled -> current.copy(hideIcon = event.value)
+                is SystemUIEvent.Fod.ShortcutsFollowClockColor ->
+                    current.copy(shortcutsFollowClockColor = event.value)
             }
         }
         is SystemUIEvent.StatusBar -> onStatusBarEvent(event)

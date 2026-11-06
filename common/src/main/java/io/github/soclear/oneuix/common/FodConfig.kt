@@ -6,6 +6,7 @@ import java.io.InputStream
 @Serializable
 data class FodConfig(
     val hideIcon: Boolean = false,
+    val shortcutsFollowClockColor: Boolean = false,
 ) {
     companion object {
         // A package-targeted notification only: receivers read the trusted remote file.

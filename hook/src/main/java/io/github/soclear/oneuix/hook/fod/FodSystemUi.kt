@@ -1,6 +1,11 @@
 package io.github.soclear.oneuix.hook.fod
 
+import android.content.res.ColorStateList
+import android.graphics.drawable.Drawable
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.FodConfig
 import io.github.soclear.oneuix.common.ONE_UI_VERSION
@@ -20,6 +25,7 @@ object FodSystemUi {
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
         runtime.safely("Fingerprint popup hook is unsupported") { bridge.installPopup() }
         runtime.safely("Fingerprint toast hook is unsupported") { bridge.installToast() }
+        runtime.safely("Lockscreen shortcut color hooks are unsupported") { bridge.installShortcutClockColor() }
     }
 
     private class Bridge(
@@ -31,6 +37,8 @@ object FodSystemUi {
         private val popups = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
         private val toastTypes = WeakHashMap<View, String>()
         private val hiddenToasts = WeakHashMap<View, Float>()
+        private val shortcutViews = WeakHashMap<ImageView, Boolean>()
+        private val originalShortcutTints = WeakHashMap<ImageView, ColorStateList?>()
 
         fun installIconVisibility() {
             val fingerprintManager = loader.loadClass("android.hardware.fingerprint.FingerprintManager")
@@ -123,6 +131,111 @@ object FodSystemUi {
             runtime.onChanged {
                 if (runtime.state.config.hideIcon) popups.toList().forEach { clear.invoke(it) }
             }
+        }
+
+        /**
+         * Samsung uses KeyguardSecAffordanceView for the two bottom lock-screen shortcuts.
+         * Its mIsTaskTypeShortcut flag distinguishes native task shortcuts (for example,
+         * camera/flashlight) from app-provided shortcuts. Only the former are recoloured.
+         */
+        fun installShortcutClockColor() {
+            val affordance = loader.loadClass("com.android.systemui.statusbar.KeyguardSecAffordanceView")
+            val setImageDrawable = affordance.getDeclaredMethod("setImageDrawable", Drawable::class.java)
+                .apply { isAccessible = true }
+            module.hook(setImageDrawable).intercept { chain ->
+                val result = chain.proceed()
+                runtime.safely("Apply lockscreen clock color to shortcut") {
+                    (chain.thisObject as? ImageView)?.let { view ->
+                        shortcutViews[view] = true
+                        applyShortcutClockColor(view)
+                    }
+                }
+                result
+            }
+
+            // The lock-screen clock can change its text color without rebuilding the
+            // affordance views. Watch TextView color updates, but only react when the
+            // changed TextView belongs to a tracked clock view.
+            val textView = loader.loadClass("android.widget.TextView")
+            val colorStateList = ColorStateList::class.java
+            val colorMethods = textView.declaredMethods.filter { method ->
+                method.name == "setTextColor" && (
+                    method.parameterTypes.contentEquals(arrayOf(Integer.TYPE)) ||
+                    method.parameterTypes.contentEquals(arrayOf(colorStateList))
+                )
+            }
+            check(colorMethods.isNotEmpty())
+            colorMethods.forEach { method ->
+                module.hook(method).intercept { chain ->
+                    val result = chain.proceed()
+                    runtime.safely("Refresh lockscreen shortcut clock color") {
+                        val changed = chain.thisObject as? TextView ?: return@safely
+                        if (shortcutViews.keys.any { shortcut ->
+                                val root = fieldValue(shortcut, "mClockView") as? View
+                                root != null && isDescendantOf(changed, root)
+                            }) {
+                            shortcutViews.keys.toList().forEach(::applyShortcutClockColor)
+                        }
+                    }
+                    result
+                }
+            }
+
+            runtime.onChanged {
+                shortcutViews.keys.toList().forEach(::applyShortcutClockColor)
+            }
+        }
+
+        private fun applyShortcutClockColor(view: ImageView) {
+            val isNativeTaskShortcut = fieldValue(view, "mIsTaskTypeShortcut") as? Boolean ?: false
+            if (!runtime.state.config.shortcutsFollowClockColor || !isNativeTaskShortcut) {
+                if (originalShortcutTints.containsKey(view)) {
+                    view.imageTintList = originalShortcutTints.remove(view)
+                }
+                return
+            }
+
+            val clockRoot = fieldValue(view, "mClockView") as? View ?: return
+            val color = findClockTextColor(clockRoot) ?: return
+            if (!originalShortcutTints.containsKey(view)) {
+                originalShortcutTints[view] = view.imageTintList
+            }
+            view.imageTintList = ColorStateList.valueOf(color)
+        }
+
+        private fun fieldValue(owner: Any, name: String): Any? = runCatching {
+            owner.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(owner)
+        }.getOrNull()
+
+        private fun isDescendantOf(view: View, root: View): Boolean {
+            var current: View? = view
+            while (current != null) {
+                if (current === root) return true
+                current = (current.parent as? View)
+            }
+            return false
+        }
+
+        private fun findClockTextColor(root: View): Int? {
+            var best: TextView? = null
+            var bestScore = Float.NEGATIVE_INFINITY
+
+            fun visit(view: View) {
+                if (view is TextView) {
+                    val text = view.text?.toString().orEmpty()
+                    val score = view.textSize + if (text.any(Char::isDigit)) 10000f else 0f
+                    if (text.isNotBlank() && score > bestScore) {
+                        best = view
+                        bestScore = score
+                    }
+                }
+                if (view is ViewGroup) {
+                    for (index in 0 until view.childCount) visit(view.getChildAt(index))
+                }
+            }
+
+            visit(root)
+            return best?.currentTextColor
         }
 
         fun installToast() {
