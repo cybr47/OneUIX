@@ -16,8 +16,6 @@ object FodSystemUi {
         val bridge = Bridge(module, classLoader, runtime)
         // Use SystemUI's native visibility API for the single hide/show option.
         runtime.safely("Native fingerprint icon visibility hook is unsupported") { bridge.installIconVisibility() }
-        // Clamp the UDFPS drawable itself after Samsung recalculates its alpha.
-        runtime.safely("Fingerprint drawable alpha guard is unsupported") { bridge.installDrawableAlphaGuard() }
         // Firmware can use more than one presentation path; resolve each independently.
         runtime.safely("Fingerprint indication hooks are unsupported") { bridge.installIndications() }
         runtime.safely("Fingerprint popup hook is unsupported") { bridge.installPopup() }
@@ -33,7 +31,6 @@ object FodSystemUi {
         private val popups = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
         private val toastTypes = WeakHashMap<View, String>()
         private val hiddenToasts = WeakHashMap<View, Float>()
-        private val udfpsViews = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
 
         fun installIconVisibility() {
             val fingerprintManager = loader.loadClass("android.hardware.fingerprint.FingerprintManager")
@@ -55,35 +52,36 @@ object FodSystemUi {
                     if (hidden) null else chain.proceed()
                 }
             }
-        }
 
-        fun installDrawableAlphaGuard() {
-            val viewClass = loader.loadClass("com.android.systemui.biometrics.UdfpsAnimationView")
-            val updateAlpha = viewClass.getDeclaredMethod("updateAlpha").apply { isAccessible = true }
-            require(updateAlpha.parameterCount == 0 && updateAlpha.returnType == Void.TYPE)
+            val monitor = loader.loadClass("com.android.keyguard.KeyguardSecUpdateMonitorImpl")
+            val startListening = monitor.getDeclaredMethod(
+                "startListeningForFingerprint",
+                Boolean::class.javaPrimitiveType,
+            )
+            val isRunning = monitor.getMethod("isFingerprintDetectionRunning")
+            val fpmField = monitor.getDeclaredField("mFpm").apply { isAccessible = true }
+            require(startListening.returnType == Void.TYPE)
+            require(isRunning.parameterCount == 0 && isRunning.returnType == Boolean::class.javaPrimitiveType)
+            require(fingerprintManager.isAssignableFrom(fpmField.type))
 
-            module.hook(updateAlpha).intercept { chain ->
+            // In KeyguardSecUpdateMonitorImpl.updateFingerprintListeningState(int),
+            // mFpm.semShowUdfpsIcon() runs before startListeningForFingerprint(false).
+            // When fingerprint listening was stopped (e.g. while the notification shade
+            // or Quick Settings was expanded), starting a new authenticate/detect session
+            // resets the native UDFPS icon visibility, so re-apply semHideUdfpsIcon()
+            // once the session is active.
+            module.hook(startListening).intercept { chain ->
                 val result = chain.proceed()
-                runtime.safely("Clamp UDFPS drawable alpha") {
-                    val view = chain.thisObject as? View ?: return@safely
-                    udfpsViews.add(view)
-                    if (runtime.state.config.hideIcon) {
-                        val drawable = view.reflect.call("getDrawable")
-                            ?: error("UDFPS drawable is unavailable")
-                        // updateAlpha() writes the native calculated alpha to the inner
-                        // drawable, not to the View. Clamp that exact rendered object.
-                        drawable.reflect.call("setAlpha", 0)
+                if (runtime.state.config.hideIcon) {
+                    val owner = chain.thisObject
+                    if (owner != null && isRunning.invoke(owner) == true) {
+                        fpmField.get(owner)?.let { fpm ->
+                            runCatching { hide.invoke(fpm) }
+                                .onFailure { runtime.report("Cannot request native FOD icon hide", it) }
+                        }
                     }
                 }
                 result
-            }
-
-            runtime.onChanged {
-                udfpsViews.toList().forEach { view ->
-                    runtime.safely("Refresh UDFPS drawable alpha") {
-                        view.reflect.call("updateAlpha")
-                    }
-                }
             }
         }
 
