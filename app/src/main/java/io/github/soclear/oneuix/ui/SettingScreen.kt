@@ -43,6 +43,7 @@ import io.github.soclear.oneuix.ui.category.DetailPaneSPen
 import io.github.soclear.oneuix.ui.category.DetailPaneSettings
 import io.github.soclear.oneuix.ui.category.DetailPaneSketchBook
 import io.github.soclear.oneuix.ui.category.DetailPaneSystemUI
+import io.github.soclear.oneuix.ui.category.DetailPaneXMorphClock
 import io.github.soclear.oneuix.ui.category.DetailPaneThemeCenter
 import io.github.soclear.oneuix.ui.category.DetailPaneVideo
 import io.github.soclear.oneuix.ui.category.DetailPaneWatchManager
@@ -169,6 +170,8 @@ fun SettingScreen(viewModel: SettingViewModel, modifier: Modifier = Modifier) {
                                 navigateToExtra(SettingDestination.Extra.NetworkSpeed)
                             }
                         )
+
+                        Category.XMorphClock -> DetailPaneXMorphClock()
 
                         Category.Settings -> DetailPaneSettings(
                             uiState = preference.settings,
