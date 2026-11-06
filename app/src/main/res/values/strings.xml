@@ -1,5 +1,15 @@
 <resources>
     <string name="app_name">One UI X</string>
+    <string name="xmorph_clock">XMorphClock</string>
+    <string name="xmc_page_intro">Custom lock-screen clock faces for Samsung One UI.</string>
+    <string name="xmc_stage_title">Integration foundation</string>
+    <string name="xmc_stage_summary">This is the initial OneUIX scaffold. No lock-screen or Always On Display clock hooks are active yet.</string>
+    <string name="xmc_renderer_title">Clock renderer</string>
+    <string name="xmc_renderer_summary">Port the clock-face renderer, presets, fonts, layers and animation engine.</string>
+    <string name="xmc_lockscreen_title">One UI lock-screen adapter</string>
+    <string name="xmc_lockscreen_summary">Identify Samsung clock containers and replace the native clock while preserving keyguard behaviour.</string>
+    <string name="xmc_aod_title">Always On Display</string>
+    <string name="xmc_aod_summary">Build a separate AOD path with dimming and Samsung burn-in protection.</string>
     <string name="xposed_description">Samsung One UI Extension</string>
     <string name="module_disabled_tip">Please enable this module in LSPosed</string>
     <string name="confirm">Confirm</string>
