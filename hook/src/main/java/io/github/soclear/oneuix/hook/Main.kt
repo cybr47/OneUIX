@@ -11,6 +11,7 @@ import io.github.soclear.oneuix.hook.launcher.MediaPage
 import io.github.soclear.oneuix.hook.systemui.AOD
 import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
 import io.github.soclear.oneuix.hook.systemui.ComposeBatteryAppearance
+import io.github.soclear.oneuix.hook.systemui.LockscreenShadeCloseFade
 import io.github.soclear.oneuix.hook.systemui.WifiGeneration
 import io.github.soclear.oneuix.hook.systemui.statusbar.ESIM
 import io.github.soclear.oneuix.hook.systemui.statusbar.HideBatteryIcon
@@ -37,7 +38,10 @@ class Main : XposedModule() {
         // settings file exists. Other features retain their existing startup behavior.
         val fod = savedPreference?.systemUI?.fod ?: FodConfig()
         when (packageName) {
-            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> FodSystemUi.install(fod)
+            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> {
+                FodSystemUi.install(fod)
+                LockscreenShadeCloseFade.install()
+            }
         }
         val preference = savedPreference ?: return@with
 
