@@ -57,7 +57,7 @@ object LockscreenShadeCloseFade {
         // after SystemUIApplication.onCreate() and initial Keyguard presentation complete.
         enqueueMainIdleTask {
             try {
-                installStateListener(module, loader)
+                installStateListener(loader)
             } catch (t: Throwable) {
                 xlog(t)
             }
@@ -65,7 +65,7 @@ object LockscreenShadeCloseFade {
     }
 
     context(module: XposedModule)
-    private fun installStateListener(module: XposedModule, classLoader: ClassLoader) {
+    private fun installStateListener(classLoader: ClassLoader) {
         val npvcClass = classLoader.loadClass("com.android.systemui.shade.NotificationPanelViewController")
         val stateListenerClass = classLoader.loadClass(
             "com.android.systemui.shade.NotificationPanelViewController\$StatusBarStateListener"

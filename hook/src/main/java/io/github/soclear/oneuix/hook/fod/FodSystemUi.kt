@@ -1,7 +1,6 @@
 package io.github.soclear.oneuix.hook.fod
 
 import android.content.Context
-import android.hardware.fingerprint.FingerprintManager
 import android.view.View
 import io.github.libxposed.api.XposedModule
 import io.github.soclear.oneuix.common.FodConfig
@@ -42,16 +41,18 @@ object FodSystemUi {
         private val popups = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
         private val toastTypes = WeakHashMap<View, String>()
         private val hiddenToasts = WeakHashMap<View, Float>()
+        private var fingerprintManagerClass: Class<*>? = null
         private var hideMethod: Method? = null
         @Volatile
         private var deferredHooksInstalled = false
 
         fun installEarlyIconVisibility() {
-            val fingerprintManager = FingerprintManager::class.java
+            val fingerprintManager = loader.loadClass("android.hardware.fingerprint.FingerprintManager")
             val hide = fingerprintManager.getMethod("semHideUdfpsIcon")
             val show = fingerprintManager.getMethod("semShowUdfpsIcon")
             require(hide.parameterCount == 0 && hide.returnType == Void.TYPE)
             require(show.parameterCount == 0 && show.returnType == Void.TYPE)
+            fingerprintManagerClass = fingerprintManager
             hideMethod = hide
 
             // Samsung's normal show request also clears the native hidden state. When
@@ -95,7 +96,10 @@ object FodSystemUi {
         }
 
         fun installIconVisibility() {
-            val fingerprintManager = FingerprintManager::class.java
+            val fingerprintManager = fingerprintManagerClass
+                ?: loader.loadClass("android.hardware.fingerprint.FingerprintManager").also {
+                    fingerprintManagerClass = it
+                }
             val hide = hideMethod ?: fingerprintManager.getMethod("semHideUdfpsIcon").also {
                 require(it.parameterCount == 0 && it.returnType == Void.TYPE)
                 hideMethod = it
