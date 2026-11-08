@@ -7,6 +7,9 @@ import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.content.res.loader.ResourcesLoader
 import android.content.res.loader.ResourcesProvider
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import io.github.libxposed.api.XposedModule
@@ -47,13 +50,63 @@ val Context.longVersionCode get() = packageManager.getPackageInfo(packageName, 0
 
 @SuppressLint("DiscouragedPrivateApi")
 private val attachMethod: Method = Application::class.java.getDeclaredMethod("attach", Context::class.java)
+private val attachLock = Any()
+private val pendingAttachActions = mutableListOf<Context.() -> Unit>()
+private var attachHookInstalled = false
+
+@Volatile
+private var attachedBaseContext: Context? = null
+
+private val mainIdleQueue = ArrayDeque<() -> Unit>()
+private var mainIdleScheduled = false
+
+@Volatile
+private var keyguardStartupReady = false
+private var keyguardMilestoneHookInstalled = false
 
 context(xposedModule: XposedModule)
 fun afterAttach(action: Context.() -> Unit) {
-    xposedModule.hook(attachMethod).intercept { chain ->
-        val result = chain.proceed()
-        action(chain.args[0] as Context)
-        result
+    attachedBaseContext?.let { context ->
+        action(context)
+        return
+    }
+    val shouldInstallHook = synchronized(attachLock) {
+        if (attachedBaseContext != null) {
+            false
+        } else {
+            pendingAttachActions.add(action)
+            if (!attachHookInstalled) {
+                attachHookInstalled = true
+                true
+            } else {
+                false
+            }
+        }
+    }
+    attachedBaseContext?.let { context ->
+        val drained = synchronized(attachLock) {
+            if (pendingAttachActions.remove(action)) action else null
+        }
+        drained?.invoke(context)
+        return
+    }
+    if (shouldInstallHook) {
+        xposedModule.hook(attachMethod).intercept { chain ->
+            val result = chain.proceed()
+            val context = chain.args.firstOrNull() as? Context
+            if (context != null && attachedBaseContext == null) {
+                val actions = synchronized(attachLock) {
+                    if (attachedBaseContext == null) {
+                        attachedBaseContext = context
+                        pendingAttachActions.toList().also { pendingAttachActions.clear() }
+                    } else {
+                        emptyList()
+                    }
+                }
+                actions.forEach { it(context) }
+            }
+            result
+        }
     }
 }
 
@@ -66,6 +119,113 @@ fun afterAttachTry(canRunAction: Boolean = true, action: Context.() -> Unit) {
             } catch (t: Throwable) {
                 xlog(t)
             }
+        }
+    }
+}
+
+/**
+ * Enqueues a non-critical initialization task to run on the main thread's [android.os.MessageQueue]
+ * after `Application.onCreate()` and initial SystemUI Keyguard presentation (`KeyguardViewMediator`)
+ * have completed, executing one task per idle cycle so SystemUI startup and lockscreen enforcement
+ * are never blocked or delayed.
+ */
+context(xposedModule: XposedModule)
+fun enqueueMainIdleTask(task: () -> Unit) {
+    val mainHandler = Handler(Looper.getMainLooper())
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+        mainHandler.post { enqueueMainIdleTask(task) }
+        return
+    }
+    ensureKeyguardMilestoneHook(mainHandler)
+    mainIdleQueue.addLast(task)
+    if (keyguardStartupReady) {
+        scheduleNextMainIdleTask(mainHandler)
+    }
+}
+
+context(xposedModule: XposedModule)
+private fun ensureKeyguardMilestoneHook(mainHandler: Handler) {
+    if (keyguardMilestoneHookInstalled) return
+    keyguardMilestoneHookInstalled = true
+
+    val context = attachedBaseContext
+    if (context == null || context.packageName != "com.android.systemui") {
+        keyguardStartupReady = true
+        return
+    }
+
+    val hooked = runCatching {
+        val loader = context.classLoader
+        val kvmClass = loader.loadClass("com.android.systemui.keyguard.KeyguardViewMediator")
+        val showingField = runCatching {
+            kvmClass.getDeclaredField("mShowing").apply { isAccessible = true }
+        }.getOrNull()
+
+        val handleShowInner = runCatching {
+            kvmClass.getDeclaredMethod("handleShowInner", Bundle::class.java).apply { isAccessible = true }
+        }.getOrNull()
+
+        if (handleShowInner != null) {
+            xposedModule.hook(handleShowInner).intercept { chain ->
+                val result = chain.proceed()
+                markKeyguardStartupReady(mainHandler)
+                result
+            }
+        }
+
+        val doKeyguardMethods = kvmClass.declaredMethods.filter { it.name == "doKeyguardLocked" }
+        doKeyguardMethods.forEach { method ->
+            method.isAccessible = true
+            xposedModule.hook(method).intercept { chain ->
+                val result = chain.proceed()
+                if (!keyguardStartupReady) {
+                    val showing = runCatching {
+                        val owner = chain.thisObject
+                        if (owner != null && showingField != null) showingField.getBoolean(owner) else true
+                    }.getOrDefault(true)
+                    // If doKeyguardLocked short-circuited because the lockscreen is disabled
+                    // ("None" / swipe disabled), no SHOW message will be sent, so release the gate.
+                    if (!showing || handleShowInner == null) {
+                        markKeyguardStartupReady(mainHandler)
+                    }
+                }
+                result
+            }
+        }
+
+        handleShowInner != null || doKeyguardMethods.isNotEmpty()
+    }.getOrDefault(false)
+
+    if (!hooked) {
+        keyguardStartupReady = true
+    }
+}
+
+private fun markKeyguardStartupReady(mainHandler: Handler) {
+    if (keyguardStartupReady) return
+    keyguardStartupReady = true
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+        scheduleNextMainIdleTask(mainHandler)
+    } else {
+        mainHandler.post { scheduleNextMainIdleTask(mainHandler) }
+    }
+}
+
+private fun scheduleNextMainIdleTask(mainHandler: Handler) {
+    if (!keyguardStartupReady || mainIdleScheduled || mainIdleQueue.isEmpty()) return
+    mainIdleScheduled = true
+    mainHandler.post {
+        Looper.myQueue().addIdleHandler {
+            mainIdleScheduled = false
+            val nextTask = mainIdleQueue.removeFirstOrNull()
+            try {
+                nextTask?.invoke()
+            } finally {
+                if (mainIdleQueue.isNotEmpty()) {
+                    scheduleNextMainIdleTask(mainHandler)
+                }
+            }
+            false
         }
     }
 }

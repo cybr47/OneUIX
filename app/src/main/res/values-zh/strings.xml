@@ -16,6 +16,8 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">仅去掉百分号，保留数字</string>
     <string name="hideBatteryIcon_title">隐藏电池图标</string>
     <string name="hideBatteryIcon_summary">隐藏电池图标，插入电源时显示充电图标。不影响电池百分比</string>
+    <string name="hideWifiGenerationDigit_title">隐藏 Wi-Fi 代数数字</string>
+    <string name="hideWifiGenerationDigit_summary">隐藏 Wi-Fi 图标旁的数字（如 5、6、7），显示普通 Wi-Fi 图标。</string>
     <string name="addBatteryLevelText_title">显示电量文字</string>
     <string name="addBatteryLevelText_summary">在电池图标旁显示电量文字，如 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">隐藏百分号</string>

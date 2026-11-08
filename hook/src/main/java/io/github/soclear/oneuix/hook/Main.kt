@@ -2,10 +2,17 @@ package io.github.soclear.oneuix.hook
 
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
+import io.github.soclear.oneuix.common.FodConfig
+import io.github.soclear.oneuix.common.ONE_UI_VERSION
 import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.hook.fod.FodSystemUi
 import io.github.soclear.oneuix.hook.launcher.Launcher
 import io.github.soclear.oneuix.hook.launcher.MediaPage
 import io.github.soclear.oneuix.hook.systemui.AOD
+import io.github.soclear.oneuix.hook.systemui.AudioEraserTile
+import io.github.soclear.oneuix.hook.systemui.ComposeBatteryAppearance
+import io.github.soclear.oneuix.hook.systemui.LockscreenShadeCloseFade
+import io.github.soclear.oneuix.hook.systemui.WifiGeneration
 import io.github.soclear.oneuix.hook.systemui.statusbar.ESIM
 import io.github.soclear.oneuix.hook.systemui.statusbar.HideBatteryIcon
 import io.github.soclear.oneuix.hook.systemui.Notification
@@ -26,7 +33,17 @@ class Main : XposedModule() {
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) = with(param) {
         if (!isFirstPackage) return@with
-        val preference = PreferenceProvider.loadPreference() ?: return@with
+        val savedPreference = PreferenceProvider.loadPreference()
+        // Install the opt-in FOD listeners even on a fresh installation, before the
+        // settings file exists. Other features retain their existing startup behavior.
+        val fod = savedPreference?.systemUI?.fod ?: FodConfig()
+        when (packageName) {
+            Package.SYSTEMUI if (processName == Package.SYSTEMUI) -> {
+                FodSystemUi.install(fod)
+                LockscreenShadeCloseFade.install()
+            }
+        }
+        val preference = savedPreference ?: return@with
 
         if (preference.other.disableWritingToolkit &&
             packageName in preference.other.disableWritingToolkitPackages
@@ -157,6 +174,12 @@ class Main : XposedModule() {
 
                 if (preference.other.hideAppsSearchBar) {
                     Launcher.hideAppsSearchBar()
+                }
+                if (preference.other.searchBarColorsEnabled) {
+                    Launcher.modifyHomeSearchBar(
+                        colorLevel = preference.other.searchBarColorLevel,
+                        transparency = preference.other.searchBarBackgroundTransparency
+                    )
                 }
 
                 if (preference.other.removeShortcutBadge) {
@@ -296,7 +319,11 @@ class Main : XposedModule() {
                     val heightScale = if (preference.systemUI.statusBar.setBatteryIconHeightScale) {
                         preference.systemUI.statusBar.batteryIconHeightScale
                     } else null
-                    StatusBar.setBatteryIconScale(widthScale, heightScale)
+                    // One UI 9: ComposeBatteryAppearance already scales the pill inside its layout
+                    // state; applying the view-level scale as well would scale it twice.
+                    if (ONE_UI_VERSION < 90000) {
+                        StatusBar.setBatteryIconScale(widthScale, heightScale)
+                    }
                 }
 
                 if (preference.systemUI.statusBar.alignStatusBarContentToTop) {
@@ -311,15 +338,23 @@ class Main : XposedModule() {
                     StatusBar.hideBatteryPercentageSign()
                 }
 
-                if (preference.systemUI.statusBar.hideBatteryIcon) {
-                    HideBatteryIcon.apply()
-                }
-
-                if (preference.systemUI.statusBar.addBatteryLevelText) {
-                    StatusBar.addBatteryLevelText(
-                        hidePercentSign = preference.systemUI.statusBar.hideBatteryLevelTextPercentageSign,
-                        hideChargingIcon = preference.systemUI.statusBar.hideBatteryLevelTextChargingIcon,
-                    )
+                if (ONE_UI_VERSION >= 90000) {
+                    if (processName == Package.SYSTEMUI) {
+                        ComposeBatteryAppearance.install(preference.systemUI.statusBar)
+                        if (preference.systemUI.statusBar.hideWifiGenerationDigit) {
+                            WifiGeneration.hideDigit()
+                        }
+                    }
+                } else {
+                    if (preference.systemUI.statusBar.hideBatteryIcon) {
+                        HideBatteryIcon.apply()
+                    }
+                    if (preference.systemUI.statusBar.addBatteryLevelText) {
+                        StatusBar.addBatteryLevelText(
+                            hidePercentSign = preference.systemUI.statusBar.hideBatteryLevelTextPercentageSign,
+                            hideChargingIcon = preference.systemUI.statusBar.hideBatteryLevelTextChargingIcon,
+                        )
+                    }
                 }
 
                 with(preference.systemUI.statusBar.networkSpeed) {
@@ -374,6 +409,20 @@ class Main : XposedModule() {
                     StatusBar.hideLockscreenStatusBar()
                 }
 
+                val lockscreenStatusBar = preference.systemUI.statusBar
+                if (lockscreenStatusBar.hideLockscreenCarrierName ||
+                    lockscreenStatusBar.hideLockscreenNotificationIcons ||
+                    lockscreenStatusBar.hideLockscreenConnectivityIcons ||
+                    lockscreenStatusBar.hideLockscreenBatteryIcon
+                ) {
+                    StatusBar.customizeLockscreenStatusBar(
+                        hideCarrierName = lockscreenStatusBar.hideLockscreenCarrierName,
+                        hideNotificationIcons = lockscreenStatusBar.hideLockscreenNotificationIcons,
+                        hideConnectivityIcons = lockscreenStatusBar.hideLockscreenConnectivityIcons,
+                        hideBatteryIcon = lockscreenStatusBar.hideLockscreenBatteryIcon,
+                    )
+                }
+
                 if (preference.settings.supportOutdoorMode) {
                     QS.supportOutdoorMode()
                 }
@@ -401,12 +450,23 @@ class Main : XposedModule() {
                     QS.hideSmartViewQsTile()
                 }
 
-                if (preference.systemUI.qs.hideAudioEraserBanner) {
-                    QS.hideAudioEraserBanner()
-                }
-
                 if (preference.systemUI.qs.turnOn5gQsTile) {
                     QS.turnOn5gQsTile()
+                }
+
+                if (preference.systemUI.qs.hideAudioEraserBanner) {
+                    // Both hook the same banner pipeline, so only one may run. One UI 9 keeps the
+                    // transform hook shared with the Audio Eraser tile; older versions use the
+                    // list filter.
+                    if (ONE_UI_VERSION >= 90000) {
+                        AudioEraserTile.hideBanner()
+                    } else {
+                        QS.hideAudioEraserBanner()
+                    }
+                }
+
+                if (preference.systemUI.qs.audioEraserQsTileEnabled) {
+                    AudioEraserTile.install()
                 }
 
                 run {

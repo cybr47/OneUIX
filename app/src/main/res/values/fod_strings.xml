@@ -1,0 +1,5 @@
+<resources>
+    <string name="fod_lockscreen">Lock screen</string>
+    <string name="fod_title">Hide FOD icon</string>
+    <string name="fod_summary">Hide the lock screen fingerprint icon and its hints. Fingerprint unlock stays available.</string>
+</resources>

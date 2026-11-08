@@ -10,6 +10,7 @@ import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.util.AttributeSet
@@ -23,6 +24,7 @@ import android.widget.TextView
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import io.github.soclear.oneuix.common.Package
+import io.github.soclear.oneuix.hook.HomeSearchBarStyle
 import io.github.soclear.oneuix.hook.util.HookConfig
 import io.github.soclear.oneuix.hook.util.afterAttach
 import io.github.soclear.oneuix.hook.util.afterAttachTry
@@ -453,6 +455,59 @@ object Launcher {
                 }
                 hide()
                 button.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hide() }
+                result
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+    }
+
+    context(xposedModule: XposedModule, param: XposedModuleInterface.PackageReadyParam)
+    fun modifyHomeSearchBar(colorLevel: Float, transparency: Float) {
+        if (param.packageName != Package.LAUNCHER) return
+        val style = HomeSearchBarStyle(colorLevel, transparency)
+        // WidgetSearchBar hosts the Google search widget and paints the pill with its own blur and
+        // dim layers. It is found when it attaches to a window: unlike a constructor or a small
+        // internal method, that framework call is not inlined away.
+        try {
+            val bar = param.classLoader.loadClass("com.honeyspace.ui.common.qsb.WidgetSearchBar")
+            xposedModule.hook(bar.getDeclaredMethod("onAttachedToWindow")).intercept { chain ->
+                val result = chain.proceed()
+                (chain.thisObject as? View)?.let(style::track)
+                result
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+        // With HomeUp's DIY home screen the widget container is not always inside a WidgetSearchBar,
+        // so it is also found through the launcher's own calls on it. A container inside a
+        // WidgetSearchBar is skipped: that bar already carries the style.
+        try {
+            val container = param.classLoader.loadClass("com.honeyspace.ui.common.widget.QSBHostViewContainer")
+            for (name in listOf("onLayoutAppWidget", "updateBackgroundView")) {
+                container.declaredMethods.filter { it.name == name }.forEach { method ->
+                    xposedModule.hook(method).intercept { chain ->
+                        val result = chain.proceed()
+                        (chain.thisObject as? View)?.let(style::trackStandalone)
+                        result
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            xlog(t)
+        }
+        // The bar is also searched for in the launcher's view tree each time the launcher resumes:
+        // this finds it even when no hook on it fires.
+        try {
+            val activity = param.classLoader.loadClass("com.sec.android.app.launcher.Launcher")
+            xposedModule.hook(activity.getDeclaredMethod("onResume")).intercept { chain ->
+                val result = chain.proceed()
+                val root = (chain.thisObject as? android.app.Activity)?.window?.decorView
+                if (root != null) {
+                    listOf(300L, 2000L, 5000L, 10000L).forEach { delay ->
+                        root.postDelayed({ runCatching { style.discover(root) } }, delay)
+                    }
+                }
                 result
             }
         } catch (t: Throwable) {

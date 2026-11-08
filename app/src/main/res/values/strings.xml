@@ -16,6 +16,8 @@
     <string name="hideBatteryPercentageSign_summary" formatted="false">Remove the % sign only, keep the numbers</string>
     <string name="hideBatteryIcon_title">Hide battery icon</string>
     <string name="hideBatteryIcon_summary">Hides the battery icon while displaying the charging icon when plugged. Doesn\'t affect the battery percentage</string>
+    <string name="hideWifiGenerationDigit_title">Hide Wi-Fi generation number</string>
+    <string name="hideWifiGenerationDigit_summary">Hides the digit next to the Wi-Fi icon (for example 5, 6 or 7) and shows the plain Wi-Fi icon.</string>
     <string name="addBatteryLevelText_title">Show battery level text</string>
     <string name="addBatteryLevelText_summary">Display battery level as text alongside the icon, e.g. 96%</string>
     <string name="hideBatteryLevelTextPercentageSign_title">Hide percentage sign</string>
@@ -179,7 +181,19 @@
     <string name="supportCallAndTextOnOtherDevices_summary">Settings -> Connected devices -> Call &amp; text on other devices</string>
     <string name="setCustomCarrierName_title">Set custom carrier name</string>
     <string name="hideLockscreenStatusBar_title">Hide status bar on lock screen</string>
+    <string name="customizeLockscreenStatusBar_title">Customize status bar on lock screen</string>
+    <string name="customizeLockscreenStatusBar_summary">Choose which parts of the lock-screen status bar to hide individually</string>
+    <string name="hideLockscreenCarrierName_title">Hide carrier name</string>
+    <string name="hideLockscreenNotificationIcons_title">Hide notification icons</string>
+    <string name="hideLockscreenConnectivityIcons_title">Hide connectivity icons</string>
+    <string name="hideLockscreenBatteryIcon_title">Hide battery icon</string>
     <string name="hideAppsSearchBar_title">Hide search bar on app screen</string>
+    <string name="restartOneUIHome">Restart OneUI Home</string>
+    <string name="searchBarColors_title">Search bar colors</string>
+    <string name="searchBarColors_summary">Adjust the home-screen Google search bar background. Force stop One UI Home after changing.</string>
+    <string name="searchBarColor_title">Background color (black to white)</string>
+    <string name="searchBarTransparency_title">Background transparency</string>
+    <string name="searchBarColor_value">%1$s: %2$d%%</string>
     <string name="removeShortcutBadge_title">Remove bottom-right shortcut badge</string>
     <string name="removeShortcutBadge_summary">Remove the original app badge from the bottom-right corner of home screen shortcuts</string>
     <string name="watchPairing_connectionMode_title">Watch connection mode</string>
@@ -216,6 +230,9 @@
     <string name="supportBixbyCustomWakeup_summary">Enable custom phrases and retry Chinese model downloads on unsupported devices. Enable Bixby Agent and Voice wake-up in the module scope, then restart both apps.</string>
     <string name="bypassBixbyWakeWordRestrictions_title">Relax wake-up phrase restrictions</string>
     <string name="bypassBixbyWakeWordRestrictions_summary">Allow additional phrase text. Voice recording and model validation still apply.</string>
+    <string name="audioEraserQsTile_label">Audio eraser</string>
+    <string name="audioEraserQsTile_title">Add Audio Eraser QS Tile</string>
+    <string name="audioEraserQsTile_summary">Make Audio eraser available in the Quick Settings editor.</string>
     <string name="nfc_filter_title">NFC card filter</string>
     <string name="nfc_service">NFC service</string>
     <string name="nfc_filter_summary">Add NFC (com.android.nfc) to the module scope and restart the phone once. List changes apply immediately. Tap a saved card to edit its note.</string>

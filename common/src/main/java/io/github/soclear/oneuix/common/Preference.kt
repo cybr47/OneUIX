@@ -31,6 +31,7 @@ data class Preference(
         val statusBar: StatusBar = StatusBar(),
         val qs: QS = QS(),
         val aod: AOD = AOD(),
+        val fod: FodConfig = FodConfig(),
         val notification: Notification = Notification(),
         val other: Other = Other(),
     ) {
@@ -51,6 +52,7 @@ data class Preference(
             val addBatteryLevelText: Boolean = false,
             val hideBatteryLevelTextPercentageSign: Boolean = false,
             val hideBatteryLevelTextChargingIcon: Boolean = false,
+            val hideWifiGenerationDigit: Boolean = false,
             val setStatusBarClockFormat: Boolean = false,
             val statusBarClockFormat: String = "HH:mm",
             val setStatusBarClockTextScale: Boolean = false,
@@ -65,6 +67,10 @@ data class Preference(
             val setCustomCarrierName: Boolean = false,
             val customCarrierName: String = "",
             val hideLockscreenStatusBar: Boolean = false,
+            val hideLockscreenCarrierName: Boolean = false,
+            val hideLockscreenNotificationIcons: Boolean = false,
+            val hideLockscreenConnectivityIcons: Boolean = false,
+            val hideLockscreenBatteryIcon: Boolean = false,
             val restoreBluetoothStatusBarIcon: Boolean = false,
         ) {
             @Serializable
@@ -124,8 +130,10 @@ data class Preference(
             val hideQuickQsTiles: Boolean = false,
             val hideDeviceControlQsTile: Boolean = false,
             val hideSmartViewQsTile: Boolean = false,
-            val hideAudioEraserBanner: Boolean = false,
             val turnOn5gQsTile: Boolean = false,
+            val audioEraserQsTile: Boolean = false,
+            // Older configurations used the tile option to hide the banner too.
+            val hideAudioEraserBanner: Boolean = audioEraserQsTile,
             val hideQsBarMediaPlayer: Boolean = false,
             val hideQsBarNearbyDevicesAndDeviceControl: Boolean = false,
             val hideQsBarSecurityFooter: Boolean = false,
@@ -139,7 +147,10 @@ data class Preference(
             val showTraditionalChineseDateOnQS: Boolean = false,
             val modifyQSClockTextSize: Boolean = false,
             val qsClockTextSize: Float = 32f,
-        )
+        ) {
+            val audioEraserQsTileEnabled: Boolean
+                get() = hideAudioEraserBanner && audioEraserQsTile
+        }
 
         @Serializable
         data class AOD(
@@ -232,6 +243,9 @@ data class Preference(
         val mediaPagePackage: String = "",
         val embedAppInMediaPage: Boolean = false,
         val hideAppsSearchBar: Boolean = false,
+        val searchBarColorsEnabled: Boolean = false,
+        val searchBarColorLevel: Float = 0f,
+        val searchBarBackgroundTransparency: Float = 0f,
         val removeShortcutBadge: Boolean = false,
         val modifyDockBottomPadding: Boolean = false,
         val dockBottomPaddingDp: Float = 0f,
