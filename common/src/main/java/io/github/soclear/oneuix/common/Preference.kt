@@ -24,6 +24,7 @@ data class Preference(
         val disableScreenWakeOnPowerUnplugged: Boolean = false,
         val disableLowBatteryDimming: Boolean = false,
         val disableFlagSecure: Boolean = false,
+        val removeAasaInstallRestriction: Boolean = false,
     )
 
     @Serializable
@@ -154,9 +155,11 @@ data class Preference(
 
         @Serializable
         data class AOD(
+            val wallpaperOnly: Boolean = false,
             val hideAODStatusBar: Boolean = false,
             val hideAODChargingInfo: Boolean = false,
             val aodLockSupportLunar: Boolean = false,
+            val removeAODBrightnessLimit: Boolean = false,
         )
 
         @Serializable
@@ -220,6 +223,7 @@ data class Preference(
         val hideGalaxyStoreBenefits: Boolean = false,
         val setGalaxyStoreSimOperator: Boolean = false,
         val galaxyStoreSimOperator: String = "",
+        val fixMyFilesNetworkStorage: Boolean = false,
         val makeAllUserAppsAvailable: Boolean = true,
         val setWeatherProviderCN: Boolean = false,
         val showMemoryUsageInRecents: Boolean = false,

@@ -154,7 +154,11 @@
     <string name="showForcePeakRefreshRatePreference_summary">Появится в поиске настроек как «Частота обновления экрана»</string>
     <string name="supportOutdoorMode_title">Разблокировать режим “На улице”</string>
     <string name="disablePinVerifyPer72h_title">Отключить подтверждение ПИН-кода каждые 72 часа</string>
+    <string name="aodWallpaperOnly_title">Только обои на AOD</string>
+    <string name="aodWallpaperOnly_summary">Показывать на AOD только обои, не изменяя обычный экран блокировки. Включите отображение обоев экрана блокировки в настройках AOD. Для значка отпечатка пальца откройте: Настройки → Экран блокировки и AOD → Блокировка экрана и биометрия → Отпечатки пальцев → Показывать значок при выключенном экране, затем выберите «Касание для отображения» или «Никогда». Для применения перезапустите интерфейс системы.</string>
     <string name="hideAODStatusBar_title">Скрыть строку состояния на AOD</string>
+    <string name="removeAODBrightnessLimit_title">Снять ограничение яркости AOD</string>
+    <string name="removeAODBrightnessLimit_summary">Яркость AOD будет следовать системной яркости. Перезапустите System UI для применения.</string>
     <string name="hideAODChargingInfo_title">Скрыть информацию о зарядке на AOD</string>
     <string name="aodLockSupportLunar_title">Лунный календарь на AOD и экране блокировки</string>
     <string name="enableChineseHolidayDisplay_title">Китайские праздники в календаре</string>
@@ -204,7 +208,11 @@
     <string name="disableFlagSecure_title">Отключить FLAG_SECURE</string>
     <string name="hideScreenshotDetection_title">Скрывать снимки экрана от приложений</string>
     <string name="hideScreenshotDetection_summary">Добавьте выбранные приложения в область действия модуля и перезапустите их. Блокируются уведомления о захвате экрана и распознанных снимках. Снимки видимы при выборе фото; уведомления об обычных фото сохраняются</string>
+    <string name="openLiveWallpaperChooser_title">Открыть выбор живых обоев</string>
+    <string name="openLiveWallpaperChooser_summary">Сразу открывает системный выбор живых обоев. Полезно, когда в «Обоях и стиле» нет пункта «Живые обои», как на китайских прошивках</string>
     <string name="disableFlagSecure_summary">Разрешить снимки и запись экрана в защищенных окнах</string>
+        <string name="removeAasaInstallRestriction_title">Снять ограничение установки AASA</string>
+    <string name="removeAasaInstallRestriction_summary">Обойти ограничение установки AASA для некоторых системных приложений</string>
     <string name="backup_config">Резервное копирование</string>
     <string name="restore_config">Восстановить конфиг</string>
     <string name="restore_failed">Ошибка восстановления, файл может быть повреждён</string>
@@ -253,4 +261,6 @@
     <string name="allowLowBatteryFlashlight_summary">Работа до 1 % без автоматического отключения из-за низкого заряда. Защита от перегрева сохраняется</string>
     <string name="enableRealtimeBlur_title">Размытие панелей в реальном времени (экспериментально)</string>
     <string name="enableRealtimeBlur_summary">Попытаться включить размытие в реальном времени в панели уведомлений и быстрых настройках. Требуется поддержка графики в прошивке. Возможны повышенный расход энергии и ошибки отображения. После изменения перезагрузите устройство.</string>
+    <string name="fixMyFilesNetworkStorage_title">Исправить переход «Сетевого хранилища» в «Моих файлах»</string>
+    <string name="fixMyFilesNetworkStorage_summary">Для международной версии «Моих файлов» на китайской прошивке: не даёт «Сетевому хранилищу» перенаправлять на страницу обновления в Galaxy Store. Кэшированная последняя версия приравнивается к установленной</string>
 </resources>

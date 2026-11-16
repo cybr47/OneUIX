@@ -151,6 +151,13 @@ fun DetailPaneAndroid(
             checked = uiState.disableFlagSecure,
             onCheckedChange = { onEvent(AndroidEvent.DisableFlagSecure(it)) }
         )
+        SwitchItem(
+            icon = ImageVector.vectorResource(id = R.drawable.lock_open),
+            title = stringResource(id = R.string.removeAasaInstallRestriction_title),
+            summary = stringResource(id = R.string.removeAasaInstallRestriction_summary),
+            checked = uiState.removeAasaInstallRestriction,
+            onCheckedChange = { onEvent(AndroidEvent.RemoveAasaInstallRestriction(it)) }
+        )
     }
 }
 
@@ -184,6 +191,9 @@ sealed interface AndroidEvent {
 
     @JvmInline
     value class DisableFlagSecure(val value: Boolean) : AndroidEvent
+
+    @JvmInline
+    value class RemoveAasaInstallRestriction(val value: Boolean) : AndroidEvent
 }
 
 fun SettingViewModel.onAndroidEvent(event: AndroidEvent) {
@@ -265,6 +275,13 @@ fun SettingViewModel.onAndroidEvent(event: AndroidEvent) {
                 preference.copy(
                     android = preference.android.copy(
                         disableFlagSecure = event.value
+                    )
+                )
+            }
+            is AndroidEvent.RemoveAasaInstallRestriction -> {
+                preference.copy(
+                    android = preference.android.copy(
+                        removeAasaInstallRestriction = event.value
                     )
                 )
             }

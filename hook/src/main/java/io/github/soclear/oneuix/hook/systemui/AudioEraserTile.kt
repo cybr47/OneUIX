@@ -21,18 +21,6 @@ object AudioEraserTile {
     private const val BANNER_PACKAGE = "com.android.systemui.samsung.quicksetting.ui.banner."
 
     context(xposedModule: XposedModule)
-    fun hideBanner() = afterAttachTry(ONE_UI_VERSION >= 90000) {
-        val bannerTransform = classLoader.loadClass(BANNER_PACKAGE + "TopBannerViewModel\$1\$1")
-            .declaredMethods.single { it.name == "invoke" && it.parameterCount == 5 }
-        // Hiding the banner needs no controller, playback tracking, or tile hooks.
-        xposedModule.hook(bannerTransform).intercept { chain ->
-            val args = chain.args.toTypedArray()
-            args[3] = false
-            chain.proceed(args)
-        }
-    }
-
-    context(xposedModule: XposedModule)
     fun install() = afterAttachTry(ONE_UI_VERSION >= 90000) {
         Bridge(xposedModule, classLoader).install()
     }

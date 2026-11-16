@@ -37,21 +37,21 @@ component in the configured module application ID is intercepted inside SystemUI
 No command broadcast receiver, elevated app permissions, polling loop, allowlist override,
 or system-partition modification is involved.
 
-The hook resolves One UI 9's `AudioEraser`, `CustomTile`, `SQSTileImpl`, and the top-banner
-combine transform before installing the bridge. It reads the native controller's live
+The tile bridge resolves One UI 9's `AudioEraser`, `CustomTile`, and `SQSTileImpl`.
+It reads the native controller's live
 `_enabled`, `_playbackAllowed`, `_packageName`, `_packageLabel` and `_mode` StateFlows.
 Hooks on `updateEnabled`, `updatePlaybackAllowed`, `updatePackageName`,
 `updatePackageLabel` and `updateMode` refresh existing tile instances, including when
 playback starts without changing the effect mode. Saved preferences do not determine
 availability. This follows the implementation reverse-engineered from the working
 `b09f996` APK; its settings text and icon are retained. Toggle and expansion call Samsung's own actions on the main thread;
-`getDetailAdapter` returns Samsung's original adapter where supported. The top banner's
-Audio eraser visibility input is suppressed only after the native controller is captured.
-Other top banners and playback monitoring continue normally.
+`getDetailAdapter` returns Samsung's original adapter where supported. Upstream's banner
+hook filters Audio eraser from the displayed list. The native controller continues to
+update playback state, and other top banners remain visible.
 
-The default is off, including when importing an older preference backup. Firmware without
-the expected hook targets logs a compatibility error and keeps the original banner.
-The app-only tile stays unavailable if the hook/option is not active.
+The default is off, including when importing an older preference backup. Missing hook
+targets log a compatibility error. The tile stays unavailable if its bridge or option is
+inactive.
 
 ## Verification
 

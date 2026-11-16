@@ -154,7 +154,11 @@
     <string name="showForcePeakRefreshRatePreference_summary">Rechercher \"Force peak refresh rate\" dans les paramètres</string>
     <string name="supportOutdoorMode_title">Déverrouiller le mode Extérieur</string>
     <string name="disablePinVerifyPer72h_title">Désactiver la vérification du code PIN toutes les 72 heures</string>
+    <string name="aodWallpaperOnly_title">Afficher uniquement le fond d’écran sur l’AOD</string>
+    <string name="aodWallpaperOnly_summary">Afficher uniquement le fond d’écran sur l’AOD sans modifier l’écran de verrouillage normal. Activez le fond d’écran de verrouillage dans les paramètres AOD. Pour l’icône d’empreinte, accédez à Paramètres → Écran de verrouillage et AOD → Verrouillage de l’écran et biométrie → Empreintes → Afficher l’icône lorsque l’écran est éteint, puis sélectionnez « Appuyer pour afficher » ou « Jamais ». Redémarrez l’interface système pour appliquer les modifications.</string>
     <string name="hideAODStatusBar_title">Masquer la barre d\'état sur l\'AOD</string>
+    <string name="removeAODBrightnessLimit_title">Supprimer la limite de luminosité de l\'AOD</string>
+    <string name="removeAODBrightnessLimit_summary">La luminosité de l\'AOD suit celle du système. Redémarrez System UI pour appliquer.</string>
     <string name="hideAODChargingInfo_title">Masquer les informations de charge sur l\'AOD</string>
     <string name="aodLockSupportLunar_title">Afficher le calendrier lunaire chinois sur l\'AOD</string>
     <string name="enableChineseHolidayDisplay_title">Afficher les jours fériés chinois dans le calendrier</string>
@@ -204,7 +208,11 @@
     <string name="disableFlagSecure_title">Désactiver FLAG_SECURE</string>
     <string name="hideScreenshotDetection_title">Masquer les captures aux applications</string>
     <string name="hideScreenshotDetection_summary">Ajoutez les applications sélectionnées à la portée du module et redémarrez-les. Bloque les rappels de capture et les changements reconnus comme captures. Les captures restent visibles et les autres notifications de photos sont conservées</string>
+    <string name="openLiveWallpaperChooser_title">Ouvrir le sélecteur de fonds d’écran animés</string>
+    <string name="openLiveWallpaperChooser_summary">Ouvre directement le sélecteur système de fonds d’écran animés. Utile lorsque Fond d’écran et styles n’a pas d’entrée « Fonds d’écran animés », comme sur les ROM chinoises</string>
     <string name="disableFlagSecure_summary">Autoriser les captures et enregistrements d\'écran dans les fenêtres sécurisées</string>
+        <string name="removeAasaInstallRestriction_title">Supprimer la restriction d\'installation AASA</string>
+    <string name="removeAasaInstallRestriction_summary">Contourner la restriction d\'installation d\'AASA pour certaines applications système</string>
     <string name="backup_config">Sauvegarder la config</string>
     <string name="restore_config">Restaurer la config</string>
     <string name="restore_failed">Échec de la restauration, le fichier est peut-être corrompu</string>
@@ -253,4 +261,6 @@
     <string name="allowLowBatteryFlashlight_summary">Utilisable jusqu’à 1 % sans extinction automatique due à la batterie faible. La protection thermique est conservée</string>
     <string name="enableRealtimeBlur_title">Flou des panneaux en temps réel (expérimental)</string>
     <string name="enableRealtimeBlur_summary">Tenter d’activer le flou en temps réel dans les panneaux de notifications et de réglages rapides. Nécessite la prise en charge graphique de la ROM et peut augmenter la consommation ou causer des problèmes d’affichage. Redémarrez l’appareil après modification.</string>
+    <string name="fixMyFilesNetworkStorage_title">Corriger la redirection du stockage réseau dans Mes fichiers</string>
+    <string name="fixMyFilesNetworkStorage_summary">Pour la version internationale de Mes fichiers sur une ROM chinoise : empêche le stockage réseau de rediriger vers la page de mise à jour du Galaxy Store. La dernière version en cache est alignée sur la version installée</string>
 </resources>

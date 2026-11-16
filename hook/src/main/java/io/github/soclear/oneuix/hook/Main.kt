@@ -202,6 +202,12 @@ class Main : XposedModule() {
                 }
             }
 
+            Package.MY_FILES -> {
+                if (preference.other.fixMyFilesNetworkStorage) {
+                    MyFiles.fixNetworkStorageUpdateCheck()
+                }
+            }
+
             Package.NFC -> NFC.filterNfcCards()
 
             Package.NOTES -> {
@@ -455,14 +461,7 @@ class Main : XposedModule() {
                 }
 
                 if (preference.systemUI.qs.hideAudioEraserBanner) {
-                    // Both hook the same banner pipeline, so only one may run. One UI 9 keeps the
-                    // transform hook shared with the Audio Eraser tile; older versions use the
-                    // list filter.
-                    if (ONE_UI_VERSION >= 90000) {
-                        AudioEraserTile.hideBanner()
-                    } else {
-                        QS.hideAudioEraserBanner()
-                    }
+                    QS.hideAudioEraserBanner()
                 }
 
                 if (preference.systemUI.qs.audioEraserQsTileEnabled) {
@@ -515,12 +514,20 @@ class Main : XposedModule() {
                     QS.showTraditionalChineseDateOnQS()
                 }
 
+                if (preference.systemUI.aod.wallpaperOnly) {
+                    AOD.wallpaperOnly()
+                }
+
                 if (preference.systemUI.aod.hideAODChargingInfo) {
                     AOD.hideAODChargingInfo()
                 }
 
                 if (preference.systemUI.aod.hideAODStatusBar) {
                     AOD.hideAODStatusBar()
+                }
+
+                if (preference.systemUI.aod.removeAODBrightnessLimit) {
+                    AOD.removeAODBrightnessLimit()
                 }
 
                 if (preference.systemUI.aod.aodLockSupportLunar) {
@@ -649,6 +656,9 @@ class Main : XposedModule() {
 
         if (preference.android.disableFlagSecure) {
             DisableFlagSecure.hookSystemServer(classLoader)
+        }
+        if (preference.android.removeAasaInstallRestriction) {
+            Android.removeAasaInstallRestriction()
         }
     }
 }

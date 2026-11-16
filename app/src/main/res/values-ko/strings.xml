@@ -154,7 +154,11 @@
     <string name="showForcePeakRefreshRatePreference_summary">설정에서 \'최고 주사율 강제 적용\' 검색 가능</string>
     <string name="supportOutdoorMode_title">야외 모드 잠금 해제</string>
     <string name="disablePinVerifyPer72h_title">72시간마다 PIN 번호 인증 요구 비활성화</string>
+    <string name="aodWallpaperOnly_title">AOD에 배경화면만 표시</string>
+    <string name="aodWallpaperOnly_summary">일반 잠금화면은 변경하지 않고 AOD에 배경화면만 표시합니다. 시스템 AOD 설정에서 잠금화면 배경화면 표시를 켜세요. 지문 아이콘은 설정 → 잠금화면 및 AOD → 화면 잠금 및 생체 인식 → 지문 → 화면이 꺼져 있을 때 아이콘 표시에서 “눌러서 표시” 또는 “표시 안 함”을 선택하세요. 적용하려면 시스템 UI를 다시 시작하세요.</string>
     <string name="hideAODStatusBar_title">AOD 상태바 숨기기</string>
+    <string name="removeAODBrightnessLimit_title">AOD 밝기 제한 해제</string>
+    <string name="removeAODBrightnessLimit_summary">AOD 밝기가 시스템 밝기를 따릅니다. 적용하려면 System UI를 다시 시작하세요.</string>
     <string name="hideAODChargingInfo_title">AOD 충전 정보 숨기기</string>
     <string name="aodLockSupportLunar_title">AOD/잠금 화면에 음력 표시</string>
     <string name="enableChineseHolidayDisplay_title">캘린더에 중국 공휴일 표시</string>
@@ -204,7 +208,11 @@
     <string name="disableFlagSecure_title">FLAG_SECURE 비활성화</string>
     <string name="hideScreenshotDetection_title">앱에서 스크린샷 감지 숨기기</string>
     <string name="hideScreenshotDetection_summary">선택한 앱을 모듈 적용 범위에 추가한 후 다시 시작하세요. 스크린샷 콜백과 스크린샷으로 식별된 변경 알림만 차단합니다. 사진 선택기에서 스크린샷을 볼 수 있으며 일반 사진 알림은 유지됩니다</string>
+    <string name="openLiveWallpaperChooser_title">라이브 배경화면 선택기 열기</string>
+    <string name="openLiveWallpaperChooser_summary">시스템 라이브 배경화면 선택기를 바로 엽니다. 중국 ROM처럼 배경화면 및 스타일에 라이브 배경화면 항목이 없을 때 사용하세요</string>
     <string name="disableFlagSecure_summary">보안 창에서 스크린샷 및 화면 녹화 허용</string>
+        <string name="removeAasaInstallRestriction_title">AASA 설치 제한 해제</string>
+    <string name="removeAasaInstallRestriction_summary">일부 시스템 앱에 대한 AASA 정책의 설치 제한 우회</string>
     <string name="backup_config">설정 백업</string>
     <string name="restore_config">설정 복원</string>
     <string name="restore_failed">복원에 실패했습니다. 파일이 손상되었을 수 있습니다</string>
@@ -253,4 +261,6 @@
     <string name="allowLowBatteryFlashlight_summary">배터리 부족으로 자동으로 꺼지지 않고 1%까지 사용합니다. 과열 보호는 유지됩니다</string>
     <string name="enableRealtimeBlur_title">실시간 패널 블러 (실험적)</string>
     <string name="enableRealtimeBlur_summary">알림 및 빠른 설정 패널에서 실시간 블러를 시도합니다. ROM의 그래픽 지원이 필요하며 전력 소모 증가나 표시 오류가 발생할 수 있습니다. 변경 후 기기를 다시 시작하세요.</string>
+    <string name="fixMyFilesNetworkStorage_title">내 파일 네트워크 저장소 이동 문제 수정</string>
+    <string name="fixMyFilesNetworkStorage_summary">중국 ROM에서 국제판 내 파일을 사용할 때 네트워크 저장소를 누르면 Galaxy Store 업데이트 페이지로 이동하는 문제를 막습니다. 캐시된 최신 버전을 설치된 버전과 동일하게 유지합니다</string>
 </resources>
